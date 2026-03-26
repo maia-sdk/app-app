@@ -9,9 +9,9 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { ChevronsDownUp, ChevronsUpDown, LocateFixed, MoreHorizontal, RotateCcw, WandSparkles } from "lucide-react";
-import { pdfjs } from "react-pdf";
 import type { CitationFocus } from "../types";
 import type { EvidenceCard } from "../utils/infoInsights";
+import "./pdfWorker";
 import { buildGraph } from "./pdfEvidenceMap/buildGraph";
 import { edgeTypes } from "./pdfEvidenceMap/edgeTypes";
 import { nodeTypes } from "./pdfEvidenceMap/GraphNode";
@@ -33,11 +33,6 @@ import {
   parseClaimTraces,
   type OutlineEntry,
 } from "./pdfEvidenceMap/helpers";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
 
 type PdfEvidenceMapProps = {
   fileUrl: string;

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { Document, Page } from "react-pdf";
 import { buildAuthHeaders } from "../../api/client/core";
 import type { CitationEvidenceUnit, CitationHighlightBox } from "../types";
+import "./pdfWorker";
 import {
   buildOverlayPath,
   buildSearchCandidates,
@@ -20,11 +21,6 @@ import {
 import { tryFocusHighlight } from "./citationPdfPreviewFocus";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
 
 interface CitationPdfPreviewProps {
   fileUrl: string;
