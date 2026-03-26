@@ -1,5 +1,5 @@
 import type { AgentActivityEvent } from "../../types";
-import { resolveEventSourceUrl } from "./helpers";
+import { resolveEventSourceUrl } from "@maia/theatre";
 
 function maybeOpenEventSource(event: AgentActivityEvent): void {
   const shadowRaw = event.data?.shadow ?? event.metadata?.shadow;

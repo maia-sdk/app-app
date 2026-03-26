@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { deriveTheatreStage, desiredPreviewTabForStage } from "@maia/theatre";
+import { derivePhaseTimeline, deriveTheatreStage, desiredPreviewTabForStage } from "@maia/theatre";
 import { exportAgentRunEvents } from "../../../api/client";
 import type { AgentActivityEvent } from "../../types";
-import { derivePhaseTimeline } from "./helpers";
 import type { AgentActivityPanelProps } from "./types";
 import { useAgentActivityDerived } from "./useAgentActivityDerived";
 import { ActivityHeader } from "./ActivityHeader";
