@@ -1,0 +1,682 @@
+import type { ChatTurn, CitationFocus, CitationHighlightBox } from "../../types";
+import { parseEvidence } from "../../utils/infoInsights";
+import type { EvidenceCard } from "../../utils/infoInsights";
+
+const CITATION_ANCHOR_SELECTOR =
+  "a.citation, a[href^='#evidence-'], a[data-file-id], a[data-source-url], a[data-viewer-url]";
+
+type CitationAnchorInteractionPolicy = {
+  sourceUrl: string;
+  viewerUrl: string;
+  directOpenUrl: string;
+  fileId: string;
+  hasUsableFileId: boolean;
+  openDirectOnPrimaryClick: boolean;
+  openDirectOnModifiedClick: boolean;
+};
+
+function normalizeHttpUrl(rawValue: unknown): string {
+  const value = String(rawValue || "").split(/\s+/).join(" ").trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return "";
+    }
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeUrlToken(rawValue: unknown): string {
+  const value = String(rawValue || "")
+    .trim()
+    .replace(/^[("'`<\[]+/, "")
+    .replace(/[>"'`)\],.;:!?]+$/, "");
+  return normalizeHttpUrl(value);
+}
+
+function normalizeViewerUrl(rawValue: unknown): string {
+  const value = String(rawValue || "").split(/\s+/).join(" ").trim();
+  if (!value) {
+    return "";
+  }
+  const lowered = value.toLowerCase();
+  if (lowered.startsWith("javascript:") || lowered.startsWith("data:text/html")) {
+    return "";
+  }
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+  return normalizeHttpUrl(value);
+}
+
+function resolveCitationAnchorInteractionPolicy(
+  citationAnchor: HTMLAnchorElement,
+): CitationAnchorInteractionPolicy {
+  const fileId = String(citationAnchor.getAttribute("data-file-id") || "").trim();
+  const sourceUrl = normalizeHttpUrl(citationAnchor.getAttribute("data-source-url") || "");
+  const viewerUrl = normalizeViewerUrl(citationAnchor.getAttribute("data-viewer-url") || "");
+  const directOpenUrl = sourceUrl || viewerUrl;
+  const hasUsableFileId = fileId.length > 0;
+  const usesUploadedFileViewer =
+    viewerUrl.startsWith("/api/uploads/files/") ||
+    viewerUrl.includes("/api/uploads/files/");
+  const isFileBackedCitation = hasUsableFileId || usesUploadedFileViewer;
+  return {
+    sourceUrl,
+    viewerUrl,
+    directOpenUrl,
+    fileId,
+    hasUsableFileId,
+    openDirectOnPrimaryClick: Boolean(directOpenUrl) && !isFileBackedCitation,
+    openDirectOnModifiedClick: Boolean(directOpenUrl),
+  };
+}
+
+function shouldOpenCitationSourceUrlForPointerEvent(
+  event: Pick<MouseEvent, "button" | "ctrlKey" | "metaKey">,
+  policy: CitationAnchorInteractionPolicy,
+): boolean {
+  if (!policy.openDirectOnModifiedClick) {
+    return false;
+  }
+  return event.button === 1 || Boolean(event.ctrlKey || event.metaKey);
+}
+
+const ARTIFACT_URL_PATH_SEGMENTS = new Set([
+  "extract",
+  "source",
+  "link",
+  "evidence",
+  "citation",
+  "title",
+  "markdown",
+  "content",
+  "published",
+  "time",
+  "url",
+]);
+
+function isLikelyLabelArtifactUrl(rawValue: unknown): boolean {
+  const candidate = normalizeHttpUrl(rawValue);
+  if (!candidate) {
+    return false;
+  }
+  try {
+    const parsed = new URL(candidate);
+    const segments = String(parsed.pathname || "")
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => segment.trim().toLowerCase());
+    if (segments.length !== 1) {
+      return false;
+    }
+    const token = segments[0].replace(/[:]+$/, "");
+    return ARTIFACT_URL_PATH_SEGMENTS.has(token);
+  } catch {
+    return false;
+  }
+}
+
+function extractExplicitSourceUrl(rawText: unknown): string {
+  const text = String(rawText || "");
+  const patterns = [
+    /\bURL\s*Source\s*:\s*(https?:\/\/[^\s<>'")\]]+)/i,
+    /\bsource_url\s*[:=]\s*(https?:\/\/[^\s<>'")\]]+)/i,
+    /\bpage_url\s*[:=]\s*(https?:\/\/[^\s<>'")\]]+)/i,
+    /\bsource\s*url\s*:\s*(https?:\/\/[^\s<>'")\]]+)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    const candidate = normalizeUrlToken(match?.[1] || "");
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+function extractFirstHttpUrl(rawText: unknown): string {
+  const matches = String(rawText || "").match(/https?:\/\/[^\s<>'")\]]+/gi) || [];
+  for (const candidate of matches) {
+    const normalized = normalizeUrlToken(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return "";
+}
+
+function choosePreferredSourceUrl(candidates: Array<string | null | undefined>): string {
+  for (const rawCandidate of candidates) {
+    const normalized = normalizeHttpUrl(rawCandidate);
+    if (!normalized) {
+      continue;
+    }
+    if (isLikelyLabelArtifactUrl(normalized)) {
+      continue;
+    }
+    return normalized;
+  }
+  return "";
+}
+
+function normalizePageLabel(...candidates: Array<string | undefined | null>): string | undefined {
+  for (const candidate of candidates) {
+    const raw = String(candidate || "").trim();
+    if (!raw) {
+      continue;
+    }
+    const match = raw.match(/(\d{1,4})/);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
+function normalizeCitationExtract(...candidates: Array<string | undefined | null>): string {
+  const MAX_EXTRACT_CHARS = 420;
+  for (const candidate of candidates) {
+    const raw = String(candidate || "").replace(/\s+/g, " ").trim();
+    if (!raw) {
+      continue;
+    }
+    if (/^(?:\[\d{1,4}\]|【\d{1,4}】)$/.test(raw)) {
+      continue;
+    }
+    if (raw.length <= MAX_EXTRACT_CHARS) {
+      return raw;
+    }
+    const clipped = raw.slice(0, MAX_EXTRACT_CHARS);
+    const sentenceCut = Math.max(clipped.lastIndexOf("."), clipped.lastIndexOf("!"), clipped.lastIndexOf("?"));
+    if (sentenceCut >= 200) {
+      return clipped.slice(0, sentenceCut + 1).trim();
+    }
+    const wordCut = clipped.lastIndexOf(" ");
+    if (wordCut >= 200) {
+      return clipped.slice(0, wordCut).trim();
+    }
+    return clipped.trim();
+  }
+  return "No extract available for this citation.";
+}
+
+function normalizeHighlightBox(raw: unknown): CitationHighlightBox | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const entry = raw as Record<string, unknown>;
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+  const x = Number(entry.x);
+  const y = Number(entry.y);
+  const width = Number(entry.width);
+  const height = Number(entry.height);
+  if (![x, y, width, height].every((value) => Number.isFinite(value))) {
+    return null;
+  }
+  const nx = clamp01(x);
+  const ny = clamp01(y);
+  const nw = Math.max(0, Math.min(1 - nx, width));
+  const nh = Math.max(0, Math.min(1 - ny, height));
+  if (nw < 0.002 || nh < 0.002) {
+    return null;
+  }
+  return {
+    x: Number(nx.toFixed(6)),
+    y: Number(ny.toFixed(6)),
+    width: Number(nw.toFixed(6)),
+    height: Number(nh.toFixed(6)),
+  };
+}
+
+function parseHighlightBoxes(...candidates: Array<string | undefined | null>): CitationHighlightBox[] {
+  for (const candidate of candidates) {
+    const raw = String(candidate || "").trim();
+    if (!raw) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        continue;
+      }
+      const boxes: CitationHighlightBox[] = [];
+      for (const row of parsed) {
+        const normalized = normalizeHighlightBox(row);
+        if (!normalized) {
+          continue;
+        }
+        boxes.push(normalized);
+        if (boxes.length >= 24) {
+          break;
+        }
+      }
+      if (boxes.length) {
+        return boxes;
+      }
+    } catch {
+      // Ignore malformed payloads and continue with other candidates.
+    }
+  }
+  return [];
+}
+
+function parseEvidenceUnits(...candidates: Array<string | undefined | null>) {
+  for (const candidate of candidates) {
+    const raw = String(candidate || "").trim();
+    if (!raw) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        continue;
+      }
+      const units: NonNullable<CitationFocus["evidenceUnits"]> = [];
+      for (const row of parsed) {
+        if (!row || typeof row !== "object") {
+          continue;
+        }
+        const entry = row as Record<string, unknown>;
+        const text = String(entry.text || "").replace(/\s+/g, " ").trim().slice(0, 240);
+        if (text.length < 8) {
+          continue;
+        }
+        const boxesRaw = Array.isArray(entry.highlight_boxes)
+          ? entry.highlight_boxes
+          : Array.isArray(entry.highlightBoxes)
+            ? entry.highlightBoxes
+            : [];
+        const highlightBoxes = boxesRaw
+          .map((item) => normalizeHighlightBox(item))
+          .filter((item): item is CitationHighlightBox => Boolean(item));
+        if (!highlightBoxes.length) {
+          continue;
+        }
+        const charStart = Number(String(entry.char_start ?? entry.charStart ?? "").trim());
+        const charEnd = Number(String(entry.char_end ?? entry.charEnd ?? "").trim());
+        units.push({
+          text,
+          highlightBoxes,
+          charStart: Number.isFinite(charStart) ? charStart : undefined,
+          charEnd: Number.isFinite(charEnd) ? charEnd : undefined,
+        });
+        if (units.length >= 12) {
+          break;
+        }
+      }
+      if (units.length) {
+        return units;
+      }
+    } catch {
+      // Ignore malformed payloads and continue with other candidates.
+    }
+  }
+  return undefined;
+}
+
+function extractCitationClaimText(citationAnchor: HTMLAnchorElement): string {
+  const claimHost =
+    citationAnchor.closest("p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6") ||
+    citationAnchor.parentElement;
+  const raw = normalizeCitationExtract(
+    claimHost?.textContent || "",
+    citationAnchor.textContent?.trim(),
+  );
+  const cleaned = raw.replace(/(?:\[\d{1,4}\]|【\d{1,4}】)/g, "").replace(/\s+/g, " ").trim();
+  return cleaned.length >= 16 ? cleaned : "";
+}
+
+function resolveStrengthTier(rawTier: number | undefined, rawScore: number | undefined): number {
+  const tier = Number(rawTier);
+  if (Number.isFinite(tier) && tier >= 1) {
+    return Math.max(1, Math.min(3, Math.round(tier)));
+  }
+  const score = Number(rawScore);
+  if (!Number.isFinite(score) || score <= 0) {
+    return 0;
+  }
+  if (score >= 0.7) {
+    return 3;
+  }
+  if (score >= 0.42) {
+    return 2;
+  }
+  return 1;
+}
+
+function extractRefNumber(value: string): number | null {
+  const match = String(value || "").match(/(\d{1,4})/);
+  if (!match?.[1]) {
+    return null;
+  }
+  const parsed = Number(match[1]);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return null;
+  }
+  return Math.round(parsed);
+}
+
+function tokenizeForMatch(value: string): Set<string> {
+  const tokens = String(value || "")
+    .toLowerCase()
+    .match(/[a-z0-9]{3,}/g);
+  return new Set(tokens || []);
+}
+
+function evidenceCardRefNumber(card: EvidenceCard): number | null {
+  const fromId = extractRefNumber(String(card.id || ""));
+  if (fromId) {
+    return fromId;
+  }
+  return extractRefNumber(String(card.source || ""));
+}
+
+function bestEvidenceByText(query: string, cards: EvidenceCard[]): EvidenceCard | null {
+  const queryTokens = tokenizeForMatch(query);
+  if (!queryTokens.size || !cards.length) {
+    return null;
+  }
+  let best: EvidenceCard | null = null;
+  let bestScore = 0;
+  for (const card of cards) {
+    const cardTokens = tokenizeForMatch(
+      [card.extract || "", card.source || "", card.page || ""].join(" "),
+    );
+    if (!cardTokens.size) {
+      continue;
+    }
+    let overlap = 0;
+    for (const token of queryTokens) {
+      if (cardTokens.has(token)) {
+        overlap += 1;
+      }
+    }
+    if (!overlap) {
+      continue;
+    }
+    const score = overlap / Math.max(queryTokens.size, cardTokens.size);
+    if (score > bestScore) {
+      best = card;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function parseEvidenceRefId(citationAnchor: HTMLAnchorElement): string {
+  const evidenceIdAttr = (citationAnchor.getAttribute("data-evidence-id") || "").trim();
+  const evidenceIdAttrMatch = evidenceIdAttr.match(/(evidence-\d{1,4})/i);
+  if (evidenceIdAttrMatch?.[1]) {
+    return evidenceIdAttrMatch[1].toLowerCase();
+  }
+  const href = citationAnchor.getAttribute("href") || "";
+  const hrefMatch = href.match(/#(evidence-\d{1,4})/i);
+  if (hrefMatch?.[1]) {
+    return hrefMatch[1].toLowerCase();
+  }
+  const ariaControls = (citationAnchor.getAttribute("aria-controls") || "").trim();
+  const controlsMatch = ariaControls.match(/(evidence-\d{1,4})/i);
+  if (controlsMatch?.[1]) {
+    return controlsMatch[1].toLowerCase();
+  }
+  const idValue = (citationAnchor.getAttribute("id") || "").trim();
+  const idMatch = idValue.match(/(?:citation|mark)-(\d{1,4})/i);
+  if (idMatch?.[1]) {
+    return `evidence-${idMatch[1]}`;
+  }
+  const citationNumberAttr = (citationAnchor.getAttribute("data-citation-number") || "").trim();
+  if (/^\d{1,4}$/.test(citationNumberAttr)) {
+    return `evidence-${citationNumberAttr}`;
+  }
+  const labelMatch = String(citationAnchor.textContent || "").match(/(\d{1,4})/);
+  if (labelMatch?.[1]) {
+    return `evidence-${labelMatch[1]}`;
+  }
+  return "";
+}
+
+type ResolvedCitationFocus = {
+  focus: CitationFocus;
+  strengthTierResolved: number;
+  evidenceCards: EvidenceCard[];
+  matchedEvidence: EvidenceCard | null;
+};
+
+function resolveCitationFocusFromAnchor(params: {
+  turn: ChatTurn;
+  citationAnchor: HTMLAnchorElement;
+  evidenceCards?: EvidenceCard[];
+}): ResolvedCitationFocus {
+  const { turn, citationAnchor } = params;
+  const evidenceCards =
+    (Array.isArray(params.evidenceCards) && params.evidenceCards.length ? params.evidenceCards : null) ||
+    parseEvidence(turn.info || "", {
+      infoPanel: (turn.infoPanel as Record<string, unknown>) || null,
+    });
+  const fileIdAttr = citationAnchor.getAttribute("data-file-id") || "";
+  const pageAttr = citationAnchor.getAttribute("data-page") || "";
+  const sourceUrlAttr = citationAnchor.getAttribute("data-source-url") || "";
+  const phraseAttr =
+    citationAnchor.getAttribute("data-phrase") ||
+    citationAnchor.getAttribute("data-search") ||
+    "";
+  const boxesAttr =
+    citationAnchor.getAttribute("data-boxes") ||
+    citationAnchor.getAttribute("data-bboxes") ||
+    "";
+  const evidenceUnitsAttr = citationAnchor.getAttribute("data-evidence-units") || "";
+  const strengthAttrRaw = (citationAnchor.getAttribute("data-strength") || "").trim();
+  const strengthTierAttrRaw = (citationAnchor.getAttribute("data-strength-tier") || "").trim();
+  const strengthAttr = Number(strengthAttrRaw);
+  const strengthTierAttr = Number(strengthTierAttrRaw);
+  const matchQualityAttr = (citationAnchor.getAttribute("data-match-quality") || "").trim();
+  const unitIdAttr = (citationAnchor.getAttribute("data-unit-id") || "").trim();
+  const selectorAttr = (citationAnchor.getAttribute("data-selector") || "").trim();
+  const charStartAttrRaw = (citationAnchor.getAttribute("data-char-start") || "").trim();
+  const charEndAttrRaw = (citationAnchor.getAttribute("data-char-end") || "").trim();
+  const charStartAttr = Number(charStartAttrRaw);
+  const charEndAttr = Number(charEndAttrRaw);
+  const evidenceId = parseEvidenceRefId(citationAnchor);
+  const expectedRefNumber = extractRefNumber(evidenceId);
+  let matchedEvidence = evidenceId
+    ? evidenceCards.find((card) => String(card.id || "").toLowerCase() === evidenceId) || null
+    : null;
+  if (!matchedEvidence && expectedRefNumber) {
+    matchedEvidence =
+      evidenceCards.find((card) => evidenceCardRefNumber(card) === expectedRefNumber) ||
+      (expectedRefNumber >= 1 && expectedRefNumber <= evidenceCards.length
+        ? evidenceCards[expectedRefNumber - 1] || null
+        : null);
+  }
+  if (!matchedEvidence && phraseAttr) {
+    matchedEvidence = bestEvidenceByText(phraseAttr, evidenceCards);
+  }
+  if (!matchedEvidence && pageAttr) {
+    matchedEvidence =
+      evidenceCards.find((card) => normalizePageLabel(card.page) === normalizePageLabel(pageAttr)) ||
+      null;
+  }
+  if (!matchedEvidence && fileIdAttr) {
+    matchedEvidence = evidenceCards.find((card) => String(card.fileId || "") === fileIdAttr) || null;
+  }
+  const fallbackEvidence =
+    matchedEvidence ||
+    evidenceCards.find((card) => Boolean(card.fileId)) ||
+    evidenceCards[0] ||
+    null;
+  const attachmentFileId =
+    (turn.attachments || []).find((attachment) => Boolean(attachment.fileId))?.fileId || "";
+  const sourceName = (matchedEvidence?.source || fallbackEvidence?.source || "Indexed source")
+    .replace(/^\[\d+\]\s*/, "")
+    .trim();
+  const resolvedFileId = fileIdAttr || matchedEvidence?.fileId || fallbackEvidence?.fileId || attachmentFileId;
+  const sourceNameLooksUrl = /^https?:\/\//i.test(sourceName);
+  const sourceUrl = choosePreferredSourceUrl([
+    extractExplicitSourceUrl(phraseAttr),
+    extractExplicitSourceUrl(matchedEvidence?.extract || ""),
+    extractExplicitSourceUrl(fallbackEvidence?.extract || ""),
+    sourceUrlAttr,
+    matchedEvidence?.sourceUrl,
+    fallbackEvidence?.sourceUrl,
+    sourceName.startsWith("http://") || sourceName.startsWith("https://") ? sourceName : "",
+    extractFirstHttpUrl(phraseAttr),
+  ]);
+  let sourceUrlLooksBinaryDocument = false;
+  if (sourceUrl) {
+    try {
+      const parsedSourceUrl = new URL(sourceUrl);
+      sourceUrlLooksBinaryDocument = /\.(pdf|png|jpe?g|gif|webp|bmp|tiff?|svg)$/i.test(
+        parsedSourceUrl.pathname || "",
+      );
+    } catch {
+      sourceUrlLooksBinaryDocument = false;
+    }
+  }
+
+  const highlightBoxes = parseHighlightBoxes(
+    boxesAttr,
+    JSON.stringify(matchedEvidence?.highlightBoxes || []),
+  );
+  const evidenceUnits = parseEvidenceUnits(
+    evidenceUnitsAttr,
+    JSON.stringify(matchedEvidence?.evidenceUnits || []),
+    JSON.stringify(fallbackEvidence?.evidenceUnits || []),
+  );
+
+  const strengthScore = strengthAttrRaw && Number.isFinite(strengthAttr)
+    ? strengthAttr
+    : matchedEvidence?.strengthScore;
+  const strengthTier = strengthTierAttrRaw && Number.isFinite(strengthTierAttr)
+    ? strengthTierAttr
+    : matchedEvidence?.strengthTier;
+
+  const focus: CitationFocus = {
+    fileId: resolvedFileId,
+    sourceUrl: sourceUrl || undefined,
+    sourceType:
+      sourceUrl && !sourceUrlLooksBinaryDocument
+        ? "website"
+        : sourceUrl && sourceNameLooksUrl && !resolvedFileId
+          ? "website"
+          : "file",
+    sourceName: sourceName || "Indexed source",
+    page: normalizePageLabel(pageAttr, matchedEvidence?.page, fallbackEvidence?.page),
+    extract: normalizeCitationExtract(
+      phraseAttr,
+      matchedEvidence?.extract,
+      fallbackEvidence?.extract,
+      citationAnchor.textContent?.trim(),
+    ),
+    claimText: extractCitationClaimText(citationAnchor) || undefined,
+    evidenceId: evidenceId || undefined,
+    highlightBoxes: highlightBoxes.length ? highlightBoxes : undefined,
+    evidenceUnits,
+    strengthScore,
+    strengthTier,
+    matchQuality: matchQualityAttr || matchedEvidence?.matchQuality,
+    unitId: unitIdAttr || matchedEvidence?.unitId,
+    selector: selectorAttr || matchedEvidence?.selector,
+    charStart: charStartAttrRaw && Number.isFinite(charStartAttr) ? charStartAttr : matchedEvidence?.charStart,
+    charEnd: charEndAttrRaw && Number.isFinite(charEndAttr) ? charEndAttr : matchedEvidence?.charEnd,
+    graphNodeIds: matchedEvidence?.graphNodeIds,
+    sceneRefs: matchedEvidence?.sceneRefs,
+    eventRefs: matchedEvidence?.eventRefs,
+  };
+
+  return {
+    focus,
+    strengthTierResolved: resolveStrengthTier(focus.strengthTier, focus.strengthScore),
+    evidenceCards,
+    matchedEvidence,
+  };
+}
+
+/**
+ * Prefetch citation preview URLs in the background so they're cached by click time.
+ * Call this after a chat response renders citations in the DOM.
+ */
+const _prefetchedUrls = new Set<string>();
+
+function prefetchCitationSources(container: HTMLElement): void {
+  const anchors = container.querySelectorAll(CITATION_ANCHOR_SELECTOR);
+  for (const anchor of anchors) {
+    const sourceUrl = String(anchor.getAttribute("data-source-url") || anchor.getAttribute("href") || "").trim();
+    if (!sourceUrl || sourceUrl.startsWith("#") || _prefetchedUrls.has(sourceUrl)) {
+      continue;
+    }
+    _prefetchedUrls.add(sourceUrl);
+    // Warm the backend preview cache with a HEAD request
+    if (sourceUrl.startsWith("http")) {
+      const previewUrl = `/api/web/preview?url=${encodeURIComponent(sourceUrl)}`;
+      try {
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = previewUrl;
+        link.as = "document";
+        document.head.appendChild(link);
+      } catch {
+        // Silently ignore prefetch failures
+      }
+    }
+    // For uploaded files, prefetch the raw file URL
+    const fileId = String(anchor.getAttribute("data-file-id") || "").trim();
+    if (fileId) {
+      try {
+        const link = document.createElement("link");
+        link.rel = "prefetch";
+        link.href = `/api/uploads/files/${encodeURIComponent(fileId)}/raw`;
+        link.as = "fetch";
+        document.head.appendChild(link);
+      } catch {
+        // Silently ignore
+      }
+    }
+  }
+}
+
+/**
+ * Fetch highlight boxes from the server when they're missing from the anchor.
+ * This is the fallback path: anchor had no boxes → ask the server to compute them.
+ */
+async function fetchHighlightBoxesFromServer(
+  fileId: string,
+  page: string,
+  text: string,
+  claimText?: string,
+): Promise<{ highlightBoxes: CitationHighlightBox[]; evidenceUnits?: EvidenceUnit[] } | null> {
+  if (!fileId || !page) return null;
+  try {
+    const response = await fetch(`/api/uploads/files/${encodeURIComponent(fileId)}/highlight-target`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page, text, claim_text: claimText || "" }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const boxes = parseHighlightBoxes(JSON.stringify(data.highlight_boxes || []));
+    const units = parseEvidenceUnits(JSON.stringify(data.evidence_units || []));
+    if (boxes.length === 0) return null;
+    return { highlightBoxes: boxes, evidenceUnits: units };
+  } catch {
+    return null;
+  }
+}
+
+export {
+  CITATION_ANCHOR_SELECTOR,
+  normalizeCitationExtract,
+  parseEvidenceRefId,
+  prefetchCitationSources,
+  fetchHighlightBoxesFromServer,
+  resolveCitationFocusFromAnchor,
+  resolveCitationAnchorInteractionPolicy,
+  resolveStrengthTier,
+  shouldOpenCitationSourceUrlForPointerEvent,
+};
+export type { CitationAnchorInteractionPolicy, ResolvedCitationFocus };

@@ -1,0 +1,692 @@
+import type { CanvasDocumentRecord, MessageBlock } from "../../app/messageBlocks";
+
+type ConversationSummary = {
+  id: string;
+  name: string;
+  icon_key?: string | null;
+  user: string;
+  is_public: boolean;
+  date_created: string;
+  date_updated: string;
+  message_count: number;
+};
+
+type ConversationDetail = ConversationSummary & {
+  data_source: {
+    messages?: [string, string][];
+    retrieval_messages?: string[];
+    [key: string]: unknown;
+  };
+};
+
+type MindmapShareResponse = {
+  share_id: string;
+  conversation_id: string;
+  title: string;
+  date_created: string;
+  map: Record<string, unknown>;
+};
+
+type MindmapPayloadResponse = Record<string, unknown>;
+
+type AgentActionRecord = {
+  tool_id: string;
+  action_class: "read" | "draft" | "execute";
+  status: "success" | "failed" | "skipped";
+  summary: string;
+  started_at?: string;
+  ended_at?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type AgentSourceRecord = {
+  source_type: string;
+  label: string;
+  url?: string | null;
+  file_id?: string | null;
+  score?: number | null;
+  metadata?: Record<string, unknown>;
+};
+
+type SourceUsageRecord = {
+  source_id: string;
+  source_name: string;
+  source_type: string;
+  retrieved_count: number;
+  cited_count: number;
+  max_strength_score: number;
+  avg_strength_score: number;
+  citation_share: number;
+};
+
+type AgentActivityEvent = {
+  event_schema_version?: string;
+  event_id: string;
+  run_id: string;
+  seq?: number;
+  ts?: string;
+  type?: string;
+  stage?: string;
+  status?: string;
+  event_type: string;
+  title: string;
+  detail: string;
+  timestamp: string;
+  data?: Record<string, unknown>;
+  event_family?: string;
+  event_priority?: string;
+  event_render_mode?: string;
+  event_replay_importance?: string;
+  replay_importance?: string;
+  event_index?: number;
+  graph_node_id?: string | null;
+  scene_ref?: string | null;
+  snapshot_ref?: string | null;
+  metadata: Record<string, unknown>;
+};
+
+type ChatResponse = {
+  conversation_id: string;
+  conversation_name: string;
+  message: string;
+  answer: string;
+  blocks: MessageBlock[];
+  documents: CanvasDocumentRecord[];
+  info: string;
+  plot: Record<string, unknown> | null;
+  state: Record<string, unknown>;
+  mode: "ask" | "company_agent" | "deep_search" | "brain";
+  actions_taken: AgentActionRecord[];
+  sources_used: AgentSourceRecord[];
+  source_usage: SourceUsageRecord[];
+  next_recommended_steps: string[];
+  needs_human_review: boolean;
+  human_review_notes: string | null;
+  web_summary: Record<string, unknown>;
+  info_panel: Record<string, unknown>;
+  activity_run_id: string | null;
+  mindmap: Record<string, unknown>;
+  halt_reason?: string | null;
+  halt_message?: string | null;
+  mode_actually_used?: string | null;
+  mode_requested?: string | null;
+};
+
+type ChatStreamEvent =
+  | { type: "chat_delta"; delta: string; text: string }
+  | { type: "info_delta"; delta: string }
+  | { type: "plot"; plot: Record<string, unknown> | null }
+  | { type: "activity"; event: AgentActivityEvent }
+  | {
+      type: "mode_committed";
+      mode?: string;
+      scope_statement?: string;
+      message?: string;
+    }
+  | {
+      type: "mode_downgraded";
+      requested_mode?: string;
+      actual_mode?: string;
+      reason?: string;
+      message?: string;
+    }
+  | {
+      type: "halt";
+      reason?: string;
+      message?: string;
+    }
+  | { type: "debug"; message: string }
+  | { type: string; [key: string]: unknown };
+
+type IndexSelection = {
+  mode: "all" | "select" | "disabled";
+  file_ids: string[];
+};
+
+type FileRecord = {
+  id: string;
+  name: string;
+  size: number;
+  note: Record<string, unknown>;
+  date_created: string;
+};
+
+type FileActionResult = {
+  file_id: string;
+  status: string;
+  message?: string;
+};
+
+type BulkDeleteFilesResponse = {
+  index_id: number;
+  deleted_ids: string[];
+  failed: FileActionResult[];
+};
+
+type UrlActionResult = {
+  url: string;
+  status: string;
+  message?: string;
+};
+
+type BulkDeleteUrlsResponse = {
+  index_id: number;
+  deleted_ids: string[];
+  deleted_urls: string[];
+  failed: UrlActionResult[];
+};
+
+type FileGroupRecord = {
+  id: string;
+  name: string;
+  file_ids: string[];
+  date_created: string;
+};
+
+type FileGroupListResponse = {
+  index_id: number;
+  groups: FileGroupRecord[];
+};
+
+type FileGroupResponse = {
+  index_id: number;
+  group: FileGroupRecord;
+};
+
+type MoveFilesToGroupResponse = {
+  index_id: number;
+  group: FileGroupRecord;
+  moved_ids: string[];
+  skipped_ids: string[];
+};
+
+type DeleteFileGroupResponse = {
+  index_id: number;
+  group_id: string;
+  status: string;
+};
+
+type UploadItem = {
+  file_name: string;
+  status: string;
+  message?: string;
+  file_id?: string;
+};
+
+type UploadResponse = {
+  index_id: number;
+  file_ids: string[];
+  errors: string[];
+  items: UploadItem[];
+  debug: string[];
+};
+
+type CitationHighlightBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type CitationEvidenceUnit = {
+  text: string;
+  highlight_boxes?: CitationHighlightBox[];
+  char_start?: number | null;
+  char_end?: number | null;
+};
+
+type HighlightTargetResponse = {
+  file_id: string;
+  page: string;
+  highlight_boxes: CitationHighlightBox[];
+  evidence_units: CitationEvidenceUnit[];
+  trace_id?: string;
+};
+
+type IngestionJob = {
+  id: string;
+  user_id: string;
+  kind: string;
+  status: "queued" | "running" | "completed" | "failed" | "canceled" | string;
+  index_id?: number | null;
+  reindex: boolean;
+  total_items: number;
+  processed_items: number;
+  success_count: number;
+  failure_count: number;
+  bytes_total?: number;
+  bytes_persisted?: number;
+  bytes_indexed?: number;
+  items: UploadItem[];
+  errors: string[];
+  file_ids: string[];
+  debug: string[];
+  message: string;
+  date_created?: string | null;
+  date_updated?: string | null;
+  date_started?: string | null;
+  date_finished?: string | null;
+};
+
+type ConnectorCredentialRecord = {
+  tenant_id: string;
+  connector_id: string;
+  values: Record<string, string>;
+  date_updated: string;
+};
+
+type ConnectorPluginActionManifest = {
+  action_id: string;
+  title: string;
+  description: string;
+  event_family:
+    | "plan"
+    | "graph"
+    | "scene"
+    | "browser"
+    | "pdf"
+    | "doc"
+    | "sheet"
+    | "email"
+    | "api"
+    | "verify"
+    | "approval"
+    | "memory"
+    | "artifact"
+    | "system";
+  scene_type: "system" | "browser" | "document" | "email" | "sheet" | "api";
+  tool_ids: string[];
+};
+
+type ConnectorPluginEvidenceEmitter = {
+  emitter_id: string;
+  source_type: "web" | "pdf" | "sheet" | "email" | "api" | "document";
+  fields: string[];
+};
+
+type ConnectorPluginSceneMapping = {
+  scene_type: "system" | "browser" | "document" | "email" | "sheet" | "api";
+  action_ids: string[];
+};
+
+type ConnectorPluginGraphMapping = {
+  action_id: string;
+  node_type:
+    | "task"
+    | "plan_step"
+    | "research"
+    | "browser_action"
+    | "document_review"
+    | "spreadsheet_analysis"
+    | "email_draft"
+    | "verification"
+    | "approval"
+    | "artifact"
+    | "memory_lookup"
+    | "api_operation"
+    | "decision";
+  edge_family: "sequential" | "dependency" | "evidence" | "verification";
+};
+
+type ConnectorPluginManifest = {
+  connector_id: string;
+  label: string;
+  enabled: boolean;
+  actions: ConnectorPluginActionManifest[];
+  evidence_emitters: ConnectorPluginEvidenceEmitter[];
+  scene_mapping: ConnectorPluginSceneMapping[];
+  graph_mapping: ConnectorPluginGraphMapping[];
+};
+
+type GoogleOAuthStatus = {
+  connected: boolean;
+  scopes: string[];
+  enabled_tools?: string[];
+  enabled_services?: string[];
+  email?: string | null;
+  expires_at?: string | null;
+  token_type?: string | null;
+  oauth_ready?: boolean;
+  oauth_missing_env?: string[];
+  oauth_redirect_uri?: string | null;
+  oauth_client_id_configured?: boolean;
+  oauth_client_secret_configured?: boolean;
+  oauth_uses_stored_credentials?: boolean;
+  oauth_default_scopes?: string[];
+  oauth_workspace_owner_user_id?: string | null;
+  oauth_current_user_is_owner?: boolean;
+  oauth_can_manage_config?: boolean;
+  oauth_setup_request_pending?: boolean;
+  oauth_setup_request_count?: number;
+  oauth_managed_by_env?: boolean;
+  oauth_selected_services?: string[];
+};
+
+type GoogleOAuthConfigStatus = {
+  oauth_ready: boolean;
+  oauth_missing_env: string[];
+  oauth_redirect_uri: string;
+  oauth_client_id_configured: boolean;
+  oauth_client_secret_configured: boolean;
+  oauth_uses_stored_credentials: boolean;
+  oauth_default_scopes?: string[];
+  oauth_workspace_owner_user_id?: string | null;
+  oauth_current_user_is_owner?: boolean;
+  oauth_can_manage_config?: boolean;
+  oauth_setup_request_pending?: boolean;
+  oauth_setup_request_count?: number;
+  oauth_managed_by_env?: boolean;
+};
+
+type GoogleOAuthToolCatalogEntry = {
+  id: string;
+  scopes: string[];
+};
+
+type SettingsResponse = {
+  values: Record<string, unknown>;
+};
+
+type AgentLiveEvent = {
+  type: string;
+  message: string;
+  data?: Record<string, unknown>;
+  run_id?: string;
+  timestamp?: string;
+  user_id?: string;
+};
+
+type WorkGraphNodeRecord = {
+  id: string;
+  title: string;
+  detail?: string;
+  node_type?: string;
+  status?: "queued" | "running" | "completed" | "failed" | "blocked";
+  agent_id?: string | null;
+  agent_role?: string | null;
+  agent_label?: string | null;
+  agent_color?: string | null;
+  confidence?: number | null;
+  progress?: number | null;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_ms?: number | null;
+  event_index_start?: number | null;
+  event_index_end?: number | null;
+  evidence_refs?: string[];
+  artifact_refs?: string[];
+  scene_refs?: string[];
+  event_refs?: string[];
+  metadata?: Record<string, unknown>;
+};
+
+type WorkGraphEdgeRecord = {
+  id: string;
+  source: string;
+  target: string;
+  edge_family: "hierarchy" | "dependency" | "evidence" | "verification" | "handoff";
+  relation?: string;
+  event_index?: number | null;
+  metadata?: Record<string, unknown>;
+};
+
+type WorkGraphPayloadResponse = {
+  version?: number;
+  map_type?: string;
+  kind?: string;
+  schema?: string;
+  run_id: string;
+  title?: string;
+  root_id: string;
+  nodes: WorkGraphNodeRecord[];
+  edges: WorkGraphEdgeRecord[];
+  graph?: Record<string, unknown>;
+  filters?: Record<string, unknown>;
+};
+
+type WorkGraphReplayStateResponse = {
+  run_id: string;
+  latest_event_index?: number;
+  graph_snapshots?: Array<Record<string, unknown>>;
+  evidence_snapshots?: Array<Record<string, unknown>>;
+  artifact_snapshots?: Array<Record<string, unknown>>;
+  work_graph?: Record<string, unknown>;
+};
+
+type WorkflowStep = {
+  step_id: string;
+  agent_id: string;
+  step_type?: string;
+  step_config?: Record<string, unknown>;
+  input_mapping?: Record<string, string>;
+  output_key: string;
+  description?: string;
+  timeout_s?: number;
+  max_retries?: number;
+  output_schema?: Record<string, unknown>;
+  format_hint?: "json" | "markdown" | "plaintext";
+};
+
+type WorkflowEdge = {
+  from_step: string;
+  to_step: string;
+  condition?: string;
+};
+
+type WorkflowDefinition = {
+  workflow_id: string;
+  name: string;
+  description?: string;
+  version?: string;
+  steps: WorkflowStep[];
+  edges: WorkflowEdge[];
+};
+
+type WorkflowRecord = {
+  id: string;
+  tenant_id?: string;
+  name: string;
+  description?: string;
+  definition: WorkflowDefinition;
+  created_at?: number;
+  updated_at?: number;
+};
+
+type WorkflowTemplate = {
+  template_id: string;
+  name: string;
+  description: string;
+  step_count: number;
+  tags?: string[];
+  definition: WorkflowDefinition;
+};
+
+type WorkflowValidationResponse = {
+  valid: boolean;
+  errors: string[];
+  warnings?: string[];
+};
+
+type WorkflowRunEvent =
+  | {
+      event_type: "run_started";
+      run_id: string;
+      workflow_id: string;
+    }
+  | {
+      event_type: "workflow_started";
+      run_id: string;
+      workflow_id: string;
+      step_count: number;
+      step_order: string[];
+    }
+  | {
+      event_type: "workflow_step_started";
+      run_id: string;
+      workflow_id: string;
+      step_id: string;
+      agent_id: string;
+    }
+  | {
+      event_type: "workflow_step_progress";
+      run_id: string;
+      workflow_id: string;
+      step_id: string;
+      agent_id?: string;
+      delta: string;
+    }
+  | {
+      event_type: "workflow_step_completed";
+      run_id: string;
+      workflow_id: string;
+      step_id: string;
+      agent_id?: string;
+      output_key?: string;
+      result_preview: string;
+      duration_ms?: number;
+    }
+  | {
+      event_type: "workflow_step_failed";
+      run_id: string;
+      workflow_id: string;
+      step_id: string;
+      error: string;
+      retryable?: boolean;
+    }
+  | {
+      event_type: "workflow_step_skipped";
+      run_id: string;
+      workflow_id: string;
+      step_id: string;
+      reason?: string;
+    }
+  | {
+      event_type: "workflow_completed";
+      run_id: string;
+      workflow_id: string;
+      outputs?: Record<string, string>;
+      duration_ms?: number;
+    }
+  | {
+      event_type: "workflow_failed";
+      run_id: string;
+      workflow_id: string;
+      failed_step_id?: string | null;
+      error: string;
+      duration_ms?: number;
+    }
+  | {
+      event_type: "budget_exceeded";
+      run_id?: string;
+      workflow_id?: string;
+      step_id?: string;
+      detail: string;
+      tool_calls_made?: number;
+    }
+  | {
+      event_type: "error";
+      run_id?: string;
+      workflow_id?: string;
+      step_id?: string;
+      detail: string;
+    }
+  | {
+      event_type: "done";
+    }
+  | {
+      event_type: string;
+      [key: string]: unknown;
+    };
+
+type WorkflowStepRunResult = {
+  step_id: string;
+  agent_id?: string;
+  status: "completed" | "failed" | "skipped" | string;
+  output_preview?: string;
+  reason?: string;
+  error?: string;
+  duration_ms?: number;
+};
+
+type WorkflowRunRecord = {
+  run_id: string;
+  workflow_id: string;
+  tenant_id?: string;
+  status: "running" | "completed" | "failed" | string;
+  started_at: number;
+  finished_at?: number | null;
+  duration_ms?: number;
+  step_results?: WorkflowStepRunResult[];
+  final_outputs?: Record<string, string>;
+  error?: string;
+};
+
+type WorkflowGenerateStreamEvent =
+  | {
+      event_type: "nl_build_delta";
+      delta: string;
+      done?: boolean;
+      definition?: WorkflowDefinition | null;
+    }
+  | {
+      event_type: "nl_build_error";
+      error: string;
+    }
+  | {
+      event_type: "done";
+    }
+  | {
+      event_type: string;
+      [key: string]: unknown;
+    };
+
+export type {
+  AgentActionRecord,
+  AgentActivityEvent,
+  AgentLiveEvent,
+  AgentSourceRecord,
+  BulkDeleteFilesResponse,
+  BulkDeleteUrlsResponse,
+  ChatResponse,
+  ChatStreamEvent,
+  ConnectorCredentialRecord,
+  ConnectorPluginActionManifest,
+  ConnectorPluginEvidenceEmitter,
+  ConnectorPluginGraphMapping,
+  ConnectorPluginManifest,
+  ConnectorPluginSceneMapping,
+  ConversationDetail,
+  ConversationSummary,
+  DeleteFileGroupResponse,
+  FileActionResult,
+  FileGroupListResponse,
+  FileGroupRecord,
+  FileGroupResponse,
+  FileRecord,
+  GoogleOAuthConfigStatus,
+  GoogleOAuthToolCatalogEntry,
+  GoogleOAuthStatus,
+  IndexSelection,
+  IngestionJob,
+  MoveFilesToGroupResponse,
+  MindmapPayloadResponse,
+  MindmapShareResponse,
+  SourceUsageRecord,
+  SettingsResponse,
+  WorkGraphPayloadResponse,
+  WorkGraphReplayStateResponse,
+  WorkflowDefinition,
+  WorkflowEdge,
+  WorkflowRecord,
+  WorkflowGenerateStreamEvent,
+  WorkflowRunEvent,
+  WorkflowRunRecord,
+  WorkflowStep,
+  WorkflowStepRunResult,
+  WorkflowTemplate,
+  WorkflowValidationResponse,
+  UploadItem,
+  UrlActionResult,
+  UploadResponse,
+  HighlightTargetResponse,
+};

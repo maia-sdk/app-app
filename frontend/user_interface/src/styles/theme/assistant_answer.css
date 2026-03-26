@@ -1,0 +1,490 @@
+.chat-answer-html {
+  color: #1d1d1f;
+}
+
+.assistantAnswerCard {
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
+  padding: 14px 16px;
+  color: #1d1d1f;
+  box-shadow:
+    0 14px 34px -24px rgba(15, 20, 33, 0.52),
+    0 1px 0 rgba(255, 255, 255, 0.88) inset;
+}
+
+.assistantAnswerBody {
+  color: inherit;
+  font-size: 15px;
+  line-height: 1.74;
+  letter-spacing: -0.003em;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.assistantAnswerBody > *:first-child {
+  margin-top: 0;
+}
+
+.assistantAnswerBody > *:last-child {
+  margin-bottom: 0;
+}
+
+.assistantAnswerBody p {
+  margin: 0 0 0.86rem;
+  line-height: 1.78;
+}
+
+.assistantAnswerBody h1 {
+  margin: 0 0 0.78rem;
+  font-size: 1.28rem;
+  line-height: 1.35;
+  font-weight: 630;
+  letter-spacing: -0.014em;
+  color: #101114;
+}
+
+.assistantAnswerBody h2 {
+  margin: 1.1rem 0 0.58rem;
+  font-size: 1.08rem;
+  line-height: 1.42;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  color: #131417;
+}
+
+.assistantAnswerBody h3 {
+  margin: 0.92rem 0 0.48rem;
+  font-size: 0.98rem;
+  line-height: 1.42;
+  font-weight: 610;
+  letter-spacing: -0.01em;
+  color: #1a2634;
+}
+
+.assistantAnswerBody ul,
+.assistantAnswerBody ol {
+  margin: 0 0 0.9rem;
+  padding-left: 1.45rem;
+}
+
+.assistantAnswerBody ul {
+  list-style: disc;
+}
+
+.assistantAnswerBody ol {
+  list-style: decimal;
+}
+
+.assistantAnswerBody li {
+  margin: 0.18rem 0;
+}
+
+.assistantAnswerBody p,
+.assistantAnswerBody li,
+.assistantAnswerBody blockquote,
+.assistantAnswerBody td,
+.assistantAnswerBody th {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.assistantAnswerBody pre {
+  margin: 0.9rem 0;
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f7f8fa;
+  padding: 0.68rem 0.78rem;
+}
+
+.assistantAnswerBody code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.92em;
+}
+
+.assistantAnswerBody table {
+  width: 100%;
+  margin: 0.9rem 0;
+  border-collapse: collapse;
+}
+
+.assistantAnswerBody th,
+.assistantAnswerBody td {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0.44rem 0.52rem;
+  vertical-align: top;
+}
+
+.assistantAnswerBody th {
+  background: #f6f7f9;
+  font-weight: 600;
+}
+
+.assistantAnswerBody details {
+  margin: 0.7rem 0;
+}
+
+.assistantAnswerBody summary {
+  cursor: pointer;
+}
+
+.assistantAnswerBody img {
+  max-width: 100%;
+  border-radius: 12px;
+}
+
+.assistantAnswerBody [data-math-rendered="true"] {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  color: #111827;
+}
+
+.assistantAnswerBody [data-math-rendered="true"] .katex {
+  font-size: 1.04em;
+  line-height: 1.5;
+}
+
+.assistantAnswerBody [data-math-rendered="true"][data-math-display="true"] {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0.72rem auto 0.96rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 255, 0.96) 100%);
+  padding: 0.56rem 0.88rem;
+  box-shadow:
+    0 8px 22px -24px rgba(15, 23, 42, 0.34),
+    0 1px 0 rgba(255, 255, 255, 0.94) inset;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+}
+
+.assistantAnswerBody [data-math-rendered="true"][data-math-display="true"] .katex-display {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+.assistantAnswerBody [data-math-rendered="true"][data-math-display="true"] .katex-display > .katex {
+  display: inline-block;
+  max-width: 100%;
+  text-align: center;
+}
+
+.assistantAnswerBody [data-math-rendered="true"] a.citation {
+  display: none !important;
+}
+
+.assistantAnswerBody [data-math-fallback="true"] {
+  display: inline-block;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.04);
+  padding: 0.06rem 0.42rem;
+  font-family: "SF Mono", ui-monospace, Menlo, Monaco, "Cascadia Mono", monospace;
+  font-size: 0.93em;
+  line-height: 1.55;
+  color: #344054;
+}
+
+.assistantAnswerBody [data-math-fallback="true"][data-math-display="true"] {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 0.72rem auto 0.96rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 255, 0.96) 100%);
+  padding: 0.56rem 0.88rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  text-align: center;
+  box-shadow:
+    0 8px 22px -24px rgba(15, 23, 42, 0.34),
+    0 1px 0 rgba(255, 255, 255, 0.94) inset;
+}
+
+.info-panel-answer-html details.evidence {
+  margin: 0.55rem 0;
+  border: 1px solid rgba(31, 47, 73, 0.14);
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 0.4rem 0.62rem;
+}
+
+.info-panel-answer-html details.evidence[open] {
+  background: #f8fbff;
+}
+
+.info-panel-answer-html details.evidence > summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  font-weight: 620;
+  color: #2f3a51;
+}
+
+.info-panel-answer-html details.evidence .evidence-content {
+  margin-top: 0.45rem;
+  font-size: 0.76rem;
+  line-height: 1.48;
+  color: #334056;
+}
+
+/* ── Citation chips ─────────────────────────────────────────── */
+.chat-answer-html a.citation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 650;
+  line-height: 1;
+  padding: 0.18em 0.5em;
+  border-radius: 100px;
+  background: rgba(124, 58, 237, 0.07);
+  color: #7c3aed;
+  border: 1px solid rgba(124, 58, 237, 0.20);
+  text-decoration: none !important;
+  vertical-align: super;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  letter-spacing: 0;
+  margin: 0 0.1em;
+  min-width: 1.4em;
+  white-space: nowrap;
+}
+
+.chat-answer-html a.citation:hover {
+  background: rgba(124, 58, 237, 0.14);
+  color: #6d28d9;
+  border-color: rgba(124, 58, 237, 0.34);
+}
+
+/* ── Section headings with divider ──────────────────────────── */
+.assistantAnswerBody h2 {
+  margin: 1.72rem 0 0.6rem;
+  padding-top: 1.26rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.065);
+  font-size: 1.05rem;
+  line-height: 1.4;
+  font-weight: 630;
+  letter-spacing: -0.013em;
+  color: #101114;
+}
+
+.assistantAnswerBody > h2:first-child,
+.assistantAnswerBody > *:first-child > h2 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Keep h1 as a strong report title */
+.assistantAnswerBody h1 {
+  margin: 0 0 1rem;
+  font-size: 1.32rem;
+  line-height: 1.3;
+  font-weight: 680;
+  letter-spacing: -0.018em;
+  color: #0a0a0b;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+  padding-bottom: 0.7rem;
+}
+
+/* ── Lead paragraph after a section heading ─────────────────── */
+.assistantAnswerBody h2 + p,
+.assistantAnswerBody h1 + p {
+  margin-top: 0;
+}
+
+/* ── Report-style bullet list ────────────────────────────────── */
+.assistantAnswerBody ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.assistantAnswerBody ul li {
+  position: relative;
+  display: block;
+  padding: 0.12rem 0 0.12rem 1rem;
+}
+
+.assistantAnswerBody ul li::before {
+  content: "\2022";
+  color: #6e6e73;
+  position: absolute;
+  left: 0;
+  top: 0.16rem;
+  line-height: 1;
+}
+
+/* ── Evidence citation list (## Evidence Citations section) ─── */
+.assistantAnswerBody h2:last-of-type + ul,
+.assistantAnswerBody h2:last-of-type ~ ul {
+  margin-top: 0.2rem;
+}
+
+/* ── Inline callout for key findings (blockquote) ────────────── */
+.chat-answer-html blockquote {
+  margin: 0.8rem 0;
+  border-left: 3px solid #7c3aed;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.04) 0%, rgba(124, 58, 237, 0.01) 100%);
+  padding: 0.6rem 0.85rem;
+  color: #1d1d1f;
+  font-style: normal;
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────── */
+.dark .chat-answer-html a.citation {
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.25);
+}
+
+.dark .chat-answer-html a.citation:hover {
+  background: rgba(167, 139, 250, 0.20);
+  color: #ddd6fe;
+}
+
+.dark .assistantAnswerBody h2 {
+  border-top-color: rgba(189, 205, 235, 0.14);
+  color: #f0f4ff;
+}
+
+.dark .assistantAnswerBody h1 {
+  color: #f6f8ff;
+  border-bottom-color: rgba(189, 205, 235, 0.14);
+}
+
+.dark .assistantAnswerBody ul li::before {
+  color: #8e9ab5;
+}
+
+.dark .chat-answer-html blockquote {
+  border-left-color: #8b5cf6;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%);
+}
+
+/* ────────────────────────────────────────────────────────────── */
+
+.chat-answer-html a:not(.citation) {
+  color: #7c3aed;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(124, 58, 237, 0.35);
+  overflow-wrap: break-word;
+  word-break: normal;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.chat-answer-html a:not(.citation):hover {
+  color: #6d28d9;
+  text-decoration-color: rgba(109, 40, 217, 0.55);
+}
+
+.chat-answer-html a:not(.citation):focus-visible {
+  outline: 2px solid rgba(124, 58, 237, 0.38);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.chat-answer-html a:not(.citation):visited {
+  color: #5d45a6;
+  text-decoration-color: rgba(93, 69, 166, 0.45);
+}
+
+.chat-answer-html mark {
+  color: inherit;
+  background: linear-gradient(180deg, transparent 56%, rgba(255, 210, 61, 0.34) 56%);
+  border-radius: 4px;
+  padding: 0 0.1em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.chat-answer-html td,
+.chat-answer-html th {
+  vertical-align: top;
+}
+
+.dark .chat-answer-html {
+  color: #edf2ff;
+}
+
+.dark .assistantAnswerCard {
+  border-color: rgba(143, 164, 201, 0.32);
+  background: linear-gradient(180deg, rgba(27, 35, 49, 0.94) 0%, rgba(24, 31, 45, 0.96) 100%);
+  color: #edf2ff;
+  box-shadow:
+    0 16px 32px -24px rgba(8, 12, 18, 0.8),
+    0 1px 0 rgba(190, 210, 240, 0.08) inset;
+}
+
+.dark .assistantAnswerBody h1 {
+  color: #f6f8ff;
+}
+
+.dark .assistantAnswerBody h3 {
+  color: #d6e4fb;
+}
+
+.dark .assistantAnswerBody pre {
+  border-color: rgba(124, 144, 176, 0.36);
+  background: rgba(27, 35, 49, 0.8);
+}
+
+.dark .assistantAnswerBody th,
+.dark .assistantAnswerBody td {
+  border-color: rgba(124, 144, 176, 0.38);
+}
+
+.dark .assistantAnswerBody th {
+  background: rgba(52, 65, 88, 0.54);
+}
+
+.dark .assistantAnswerBody [data-math-rendered="true"] {
+  color: #f3f4f6;
+}
+
+.dark .assistantAnswerBody [data-math-rendered="true"][data-math-display="true"] .katex-display {
+  border-color: transparent;
+  background: transparent;
+  box-shadow:
+    none;
+}
+
+.dark .assistantAnswerBody [data-math-fallback="true"] {
+  background: rgba(148, 163, 184, 0.14);
+  color: #dbe3ef;
+}
+
+.dark .assistantAnswerBody [data-math-rendered="true"][data-math-display="true"],
+.dark .assistantAnswerBody [data-math-fallback="true"][data-math-display="true"] {
+  border-color: rgba(148, 163, 184, 0.46);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.78) 0%, rgba(23, 32, 46, 0.74) 100%);
+  box-shadow:
+    0 18px 40px -30px rgba(2, 6, 23, 0.92),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset;
+}
+
+.dark .chat-answer-html mark {
+  background: linear-gradient(180deg, transparent 56%, rgba(249, 207, 81, 0.28) 56%);
+}
+
+
+
+
+

@@ -1,0 +1,10 @@
+packages:
+  - "frontend/user_interface"
+  - "vendor/maia-sdk/packages/acp-js"
+  - "vendor/maia-sdk/packages/brain-runtime"
+  - "vendor/maia-sdk/packages/cli"
+  - "vendor/maia-sdk/packages/computer-use"
+  - "vendor/maia-sdk/packages/connectors"
+  - "vendor/maia-sdk/packages/sdk-js"
+  - "vendor/maia-sdk/packages/teamchat"
+  - "vendor/maia-sdk/packages/theatre-react"

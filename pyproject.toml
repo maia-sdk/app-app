@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel", "setuptools-git-versioning>=2.0,<3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = false
+packages.find.include = []
+
+[tool.setuptools-git-versioning]
+enabled = true
+dev_template = "{tag}"
+dirty_template = "{tag}"
+tag_filter = "v?\\d+(\\.\\d+)*.*"
+
+[project]
+name = "maia-app"
+dynamic = ["version"]
+requires-python = ">= 3.10"
+description = "Maia App"
+dependencies = [
+    "maia @ git+https://github.com/Cinnamon/maia.git@main#subdirectory=libs/maia",
+    "ktem @ git+https://github.com/Cinnamon/maia.git@main#subdirectory=libs/ktem"
+]
+authors = [
+    { name = "@trducng", email = "john@cinnamon.is" },
+    { name = "@lone17", email = "ian@cinnamon.is" },
+    { name = "@taprosoft", email = "tadashi@cinnamon.is" },
+    { name = "@cin-albert", email = "albert@cinnamon.is" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://cinnamon.github.io/maia/"
+Repository = "https://github.com/Cinnamon/maia/"
+Documentation = "https://cinnamon.github.io/maia/"
+
+[tool.codespell]
+skip = "*.js,*.css,*.map"
+# `llm` abbreviation for large language models
+ignore-words-list = "llm,fo"
+quiet-level = 3
+check-filenames = ""
+
+[tool.isort]
+known_first_party = ["maia"]
+
+[tool.pytest.ini_options]
+testpaths = ["api/tests", "libs/maia/tests", "libs/ktem/ktem_tests"]
+norecursedirs = [
+    ".venv",
+    ".venv311",
+    "venv",
+    "env",
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+]

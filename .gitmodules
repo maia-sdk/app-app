@@ -1,0 +1,3 @@
+[submodule "vendor/maia-sdk"]
+	path = vendor/maia-sdk
+	url = https://github.com/maia-sdk/maia.git

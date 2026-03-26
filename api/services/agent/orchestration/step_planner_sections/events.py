@@ -1,0 +1,267 @@
+from __future__ import annotations
+
+from typing import Any
+
+from api.services.agent.models import AgentActivityEvent
+from api.services.agent.planner import PlannedStep
+
+from ..models import TaskPreparation
+
+
+def plan_capability_event(
+    *,
+    activity_event_factory,
+    required_domains: list[str],
+    preferred_tool_ids: list[str],
+    matched_signals: list[str],
+    rationale: list[str],
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="llm.capability_plan",
+        title="Capability-based planner analysis",
+        detail=(
+            f"Matched {len(required_domains)} domain(s) and "
+            f"{len(preferred_tool_ids)} preferred tool(s)."
+        ),
+        metadata={
+            "required_domains": required_domains[:12],
+            "preferred_tool_ids": preferred_tool_ids[:24],
+            "matched_signals": matched_signals[:24],
+            "rationale": rationale[:6],
+        },
+    )
+
+
+def plan_decompose_started_event(
+    *,
+    activity_event_factory,
+    task_prep: TaskPreparation,
+    planning_detail: str,
+    request_message: str,
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="llm.plan_decompose_started",
+        title="Breaking rewritten task into execution steps",
+        detail=planning_detail[:200],
+        metadata={
+            "detailed_task": task_prep.rewritten_task or request_message,
+            "deliverables": task_prep.planned_deliverables,
+            "constraints": task_prep.planned_constraints,
+        },
+    )
+
+
+def plan_decompose_completed_event(
+    *,
+    activity_event_factory,
+    steps: list[PlannedStep],
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="llm.plan_decompose_completed",
+        title="Step decomposition ready",
+        detail=f"Generated {len(steps)} initial step(s).",
+        metadata={"step_count": len(steps), "tool_ids": [step.tool_id for step in steps]},
+    )
+
+
+def plan_web_routing_event(
+    *,
+    activity_event_factory,
+    web_routing: dict[str, Any],
+) -> AgentActivityEvent:
+    routing_mode = str(web_routing.get("routing_mode") or "none").strip().lower() or "none"
+    target_url = str(web_routing.get("target_url") or "").strip()
+    llm_used = bool(web_routing.get("llm_used"))
+    reasoning = " ".join(str(web_routing.get("reasoning") or "").split()).strip()[:200]
+    detail_parts = [f"Route: {routing_mode}"]
+    if target_url:
+        detail_parts.append(f"URL: {target_url[:120]}")
+    if reasoning:
+        detail_parts.append(reasoning)
+    return activity_event_factory(
+        event_type="llm.web_routing_decision",
+        title="Web routing decision ready",
+        detail=" | ".join(detail_parts),
+        metadata={
+            "routing_mode": routing_mode,
+            "target_url": target_url,
+            "llm_used": llm_used,
+            "reasoning": reasoning,
+        },
+    )
+
+
+def plan_step_event(
+    *,
+    activity_event_factory,
+    step_number: int,
+    planned_step: PlannedStep,
+    owner_role: str = "",
+    handoff_from_role: str = "",
+) -> AgentActivityEvent:
+    owner_role_clean = " ".join(str(owner_role or "").split()).strip().lower()
+    handoff_from_clean = " ".join(str(handoff_from_role or "").split()).strip().lower()
+    detail = f"{planned_step.title} ({planned_step.tool_id})"
+    if owner_role_clean:
+        detail = f"[{owner_role_clean}] {detail}"
+    return activity_event_factory(
+        event_type="llm.plan_step",
+        title=f"Planned step {step_number}",
+        detail=detail,
+        metadata={
+            "scene_surface": "document",
+            "action": "type",
+            "action_phase": "active",
+            "action_status": "in_progress",
+            "step": step_number,
+            "title": planned_step.title,
+            "tool_id": planned_step.tool_id,
+            "owner_role": owner_role_clean,
+            "handoff_from_role": handoff_from_clean,
+            "params": planned_step.params,
+            "why_this_step": planned_step.why_this_step,
+            "expected_evidence": list(planned_step.expected_evidence),
+        },
+    )
+
+
+def plan_candidate_event(
+    *,
+    activity_event_factory,
+    steps: list[PlannedStep],
+    task_prep: TaskPreparation,
+    request_message: str,
+    delivery_email: str,
+    workspace_logging_requested: bool,
+    planned_search_terms: list[str],
+    planned_keywords: list[str],
+    research_depth_profile: dict[str, Any],
+    role_owned_steps: list[dict[str, Any]] | None = None,
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="plan_candidate",
+        title="Generated initial execution plan",
+        detail=f"Parsed task into {len(steps)} concrete execution step(s).",
+        metadata={
+            "scene_surface": "document",
+            "action": "type",
+            "action_phase": "active",
+            "action_status": "in_progress",
+            "steps": [step.__dict__ for step in steps],
+            "task_understanding": {
+                "objective": task_prep.task_intelligence.objective,
+                "delivery_email": delivery_email,
+                "workspace_logging_requested": workspace_logging_requested,
+                "target_url": task_prep.task_intelligence.target_url,
+                "detailed_task": task_prep.rewritten_task or request_message,
+                "deliverables": task_prep.planned_deliverables[:6],
+                "constraints": task_prep.planned_constraints[:6],
+                "contract_objective": task_prep.contract_objective,
+                "contract_required_outputs": task_prep.contract_outputs[:6],
+                "contract_required_facts": task_prep.contract_facts[:6],
+                "contract_required_actions": task_prep.contract_actions[:6],
+                "contract_delivery_target": task_prep.contract_target,
+                "contract_missing_requirements": task_prep.contract_missing_requirements[:6],
+                "contract_success_checks": task_prep.contract_success_checks[:8],
+                "planned_search_terms": planned_search_terms[:6],
+                "planned_keywords": planned_keywords[:12],
+                "research_depth_profile": research_depth_profile if isinstance(research_depth_profile, dict) else {},
+                "role_owned_steps": (
+                    role_owned_steps[:32]
+                    if isinstance(role_owned_steps, list)
+                    else []
+                ),
+            },
+        },
+    )
+
+
+def plan_refined_event(
+    *,
+    activity_event_factory,
+    steps: list[PlannedStep],
+    planned_search_terms: list[str],
+    planned_keywords: list[str],
+    research_depth_profile: dict[str, Any],
+    fact_coverage: dict[str, object] | None = None,
+    role_owned_steps: list[dict[str, Any]] | None = None,
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="plan_refined",
+        title="Refined execution order",
+        detail="Prioritized sequence with search terms and keyword blueprint",
+        metadata={
+            "scene_surface": "document",
+            "action": "type",
+            "action_phase": "active",
+            "action_status": "in_progress",
+            "step_ids": [step.tool_id for step in steps],
+            "search_terms": planned_search_terms[:6],
+            "keywords": planned_keywords[:12],
+            "research_depth_profile": research_depth_profile if isinstance(research_depth_profile, dict) else {},
+            "role_owned_steps": (
+                role_owned_steps[:32]
+                if isinstance(role_owned_steps, list)
+                else []
+            ),
+            "fact_coverage": fact_coverage if isinstance(fact_coverage, dict) else {},
+        },
+    )
+
+
+def plan_fact_coverage_event(
+    *,
+    activity_event_factory,
+    fact_coverage: dict[str, object],
+) -> AgentActivityEvent:
+    missing_facts = [
+        str(item).strip()
+        for item in (
+            fact_coverage.get("missing_facts") if isinstance(fact_coverage, dict) else []
+        )
+        if str(item).strip()
+    ]
+    coverage_text = (
+        f"{int(fact_coverage.get('covered_fact_count') or 0)}/"
+        f"{int(fact_coverage.get('required_fact_count') or 0)} required fact(s) mapped to evidence."
+    )
+    detail = coverage_text if not missing_facts else coverage_text + " Missing: " + "; ".join(missing_facts[:3])
+    return activity_event_factory(
+        event_type="llm.plan_fact_coverage",
+        title="Plan fact coverage check",
+        detail=detail,
+        metadata={
+            "required_fact_count": int(fact_coverage.get("required_fact_count") or 0),
+            "covered_fact_count": int(fact_coverage.get("covered_fact_count") or 0),
+            "missing_facts": missing_facts[:6],
+            "fact_step_map": (
+                fact_coverage.get("fact_step_map")
+                if isinstance(fact_coverage.get("fact_step_map"), dict)
+                else {}
+            ),
+        },
+    )
+
+
+def plan_ready_event(
+    *,
+    activity_event_factory,
+    steps: list[PlannedStep],
+    role_owned_steps: list[dict[str, Any]] | None = None,
+) -> AgentActivityEvent:
+    return activity_event_factory(
+        event_type="plan_ready",
+        title=f"Prepared {len(steps)} execution steps",
+        metadata={
+            "scene_surface": "document",
+            "action": "type",
+            "action_phase": "completed",
+            "action_status": "completed",
+            "steps": [step.__dict__ for step in steps],
+            "role_owned_steps": (
+                role_owned_steps[:32]
+                if isinstance(role_owned_steps, list)
+                else []
+            ),
+        },
+    )
