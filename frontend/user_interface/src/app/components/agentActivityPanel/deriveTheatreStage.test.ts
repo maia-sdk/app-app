@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveTheatreStage, desiredPreviewTabForStage } from "./deriveTheatreStage";
+import { deriveTheatreStage, desiredPreviewTabForStage } from "@maia/theatre";
 
 describe("deriveTheatreStage", () => {
   it("keeps system-first during understanding without commits", () => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
+import type { TheatreStage } from "@maia/theatre";
 import { emitTheatreMetric } from "./theatreTelemetry";
-import type { TheatreStage } from "./deriveTheatreStage";
 
 function useTheatreTelemetry({
   streaming,

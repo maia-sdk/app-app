@@ -5,6 +5,7 @@ import {
   FullscreenViewerOverlay,
   MaiaDesktop,
   type FullscreenTimelineItem,
+  type TheatreStage,
 } from "@maia/theatre";
 
 import { approveAgentRunGate, rejectAgentRunGate } from "../../../api/client";
@@ -15,7 +16,6 @@ import { ReplayControls } from "./ReplayControls";
 import { visibleTimelineEvents } from "./replayModePolicy";
 import { ReplayTimeline } from "./ReplayTimeline";
 import { TeamConversationTab } from "./TeamConversationTab";
-import type { TheatreStage } from "./deriveTheatreStage";
 import type { AgentActivityEvent } from "../../types";
 
 type ActivityPanelBodyProps = {

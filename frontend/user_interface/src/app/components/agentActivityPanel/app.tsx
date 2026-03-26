@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { deriveTheatreStage, desiredPreviewTabForStage } from "@maia/theatre";
 import { exportAgentRunEvents } from "../../../api/client";
 import type { AgentActivityEvent } from "../../types";
 import { derivePhaseTimeline } from "./helpers";
@@ -8,7 +9,6 @@ import { ActivityHeader } from "./ActivityHeader";
 import { ActivityPanelBody } from "./ActivityPanelBody";
 import { CinemaOverlay } from "./CinemaOverlay";
 import { useAutoScrollTimeline, useJumpTargetSelection, useOverlayKeyboardShortcuts } from "./useActivityPanelNavigation";
-import { deriveTheatreStage, desiredPreviewTabForStage } from "./deriveTheatreStage";
 import { useSceneTextTyping } from "./useSceneTextTyping";
 import { useSceneSurfaceTransition } from "./useSceneSurfaceTransition";
 import { useManualPreviewTabOverride } from "./useManualPreviewTabOverride";

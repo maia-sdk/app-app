@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { deriveTheatreStage, desiredPreviewTabForStage } from "@maia/theatre";
 import type { AgentActivityEvent } from "../../types";
-import { deriveTheatreStage, desiredPreviewTabForStage } from "./deriveTheatreStage";
 import { deriveSurfaceCommit } from "./surfaceCommitDerivation";
 
 let eventCounter = 0;
