@@ -1,18 +1,4 @@
-function desktopStatusForEventType(eventType: string, streaming: boolean): string {
-  if (eventType === "desktop_starting") {
-    return "Starting secure agent desktop";
-  }
-  if (eventType === "desktop_ready") {
-    return "Desktop live. Beginning execution.";
-  }
-  if (eventType === "response_writing") {
-    return "Writing response while tools and evidence remain visible";
-  }
-  if (streaming) {
-    return "Desktop session is running live";
-  }
-  return "Desktop replay";
-}
+export { desktopStatusForEventType } from "@maia/theatre";
 
 function cursorLabelForEventType(type: string): string {
   if (type === "planning_started") return "Planning search strategy";
@@ -86,4 +72,4 @@ function cursorLabelForEventType(type: string): string {
   return "Empowered by Axon Group";
 }
 
-export { cursorLabelForEventType, desktopStatusForEventType };
+export { cursorLabelForEventType };
