@@ -1,6 +1,6 @@
 import type { CollaborationEntry } from "../../../api/client";
 import { fromAgentActivityEvent } from "@maia/theatre";
-import { canonicalAgentId, displayAgentName, normalizeEntryType, speakerName, toTimestamp, type ConversationRow } from "@maia/conversation";
+import { canonicalAgentId, displayAgentName, normalizeEntryType, speakerName, toTimestamp, type ConversationRow } from "@maia/teamchat";
 import { readEventPayload } from "../../utils/eventPayload";
 import { sanitizeComputerUseText } from "../../utils/userFacingComputerUse";
 import type { AgentActivityEvent } from "../../types";
@@ -150,3 +150,4 @@ export function deriveFromEvents(events: AgentActivityEvent[]): CollaborationEnt
   }
   return rows;
 }
+

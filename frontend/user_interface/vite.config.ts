@@ -16,7 +16,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       '@maia/acp': path.resolve(__dirname, '../../vendor/maia-sdk/packages/acp-js/src/index.ts'),
       '@maia/computer-use': path.resolve(__dirname, '../../vendor/maia-sdk/packages/computer-use/src/index.ts'),
-      '@maia/conversation': path.resolve(__dirname, '../../vendor/maia-sdk/packages/conversation-react/src/index.ts'),
+      '@maia/teamchat': path.resolve(__dirname, '../../vendor/maia-sdk/packages/teamchat/src/index.ts'),
       '@maia/theatre': path.resolve(__dirname, '../../vendor/maia-sdk/packages/theatre-react/src/index.ts'),
     },
   },
@@ -66,7 +66,6 @@ export default defineConfig({
           if (
             id.includes('/packages/theatre-react/') ||
             id.includes('/packages/computer-use/') ||
-            id.includes('/packages/conversation-react/') ||
             id.includes('/packages/acp-js/') ||
             id.includes('/packages/brain-runtime/')
           ) {

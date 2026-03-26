@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { ConversationPanel } from "@maia/conversation";
+import { ConversationPanel } from "@maia/teamchat";
 import { listRunCollaboration, type CollaborationEntry } from "../../../api/client";
 import type { AgentActivityEvent } from "../../types";
 import { deriveFromEvents, filterConversationRows, mergeRows, toTimestamp } from "./teamConversationModel";
@@ -96,3 +96,4 @@ export function TeamConversationTab({ runId, events }: TeamConversationTabProps)
     />
   );
 }
+
