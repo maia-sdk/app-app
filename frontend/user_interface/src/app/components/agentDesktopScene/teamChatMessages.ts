@@ -5,7 +5,7 @@ import {
   mergeRows,
   type ConversationRow,
 } from "../agentActivityPanel/teamConversationModel";
-import type { TeamChatMessage } from "./skins/TeamChatSkin";
+import type { TeamChatMessage } from "@maia/theatre";
 
 function avatarSeed(name: string): string {
   let hash = 0;
