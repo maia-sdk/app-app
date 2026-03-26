@@ -1,9 +1,9 @@
 export type {
+  CollaborationEntryLike,
   ConversationBubble,
   ConversationGroup,
   ConversationRosterMember,
   ConversationRow,
-} from "./teamConversationTypes";
-export { deriveFromEvents, filterConversationRows, mergeRows } from "./teamConversationEvents";
-export { toConversationGroups, toConversationRoster } from "./teamConversationPresentation";
-export { bubbleClass, toTimestamp } from "./teamConversationUtils";
+} from "@maia/conversation";
+export { filterConversationRows, mergeRows, toConversationGroups, toConversationRoster, bubbleClass, toTimestamp } from "@maia/conversation";
+export { deriveFromEvents } from "./teamConversationEvents";
