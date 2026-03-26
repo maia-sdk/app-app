@@ -1,6 +1,8 @@
 import { useState, type RefObject } from "react";
 import { toast } from "sonner";
 import {
+  AgentHandoffRelay,
+  ApprovalGateCard,
   AssemblyProgressPanel,
   BrainReviewPanel,
   FullscreenViewerOverlay,
@@ -12,8 +14,6 @@ import {
 import { approveAgentRunGate, rejectAgentRunGate } from "../../../api/client";
 import { readEventPayload } from "../../utils/eventPayload";
 import { resolvePreferredRunId } from "../../utils/runIdSelection";
-import { ApprovalGateCard } from "./ApprovalGateCard";
-import { AgentHandoffRelay } from "./AgentHandoffRelay";
 import { DesktopViewer } from "./DesktopViewer";
 import { ReplayControls } from "./ReplayControls";
 import { visibleTimelineEvents } from "./replayModePolicy";
