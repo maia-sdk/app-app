@@ -227,6 +227,60 @@ class BrowserSession:
             return text
         return text[: max(1, int(max_chars))].rstrip()
 
+    def extract_links(self, *, limit: int = 24) -> list[dict[str, str]]:
+        try:
+            payload = self._page.evaluate(
+                """(payload) => {
+                    const maxItems = Math.max(1, Number(payload?.maxItems || 1));
+                    const rows = [];
+                    const seen = new Set();
+                    const anchors = Array.from(document.querySelectorAll("a[href]"));
+                    for (const anchor of anchors) {
+                        if (rows.length >= maxItems) break;
+                        const rect = anchor.getBoundingClientRect();
+                        if (rect.width < 12 || rect.height < 8) continue;
+                        if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
+                        const href = String(anchor.href || "").trim();
+                        if (!href || seen.has(href)) continue;
+                        const text = String(
+                            anchor.innerText ||
+                            anchor.textContent ||
+                            anchor.getAttribute("aria-label") ||
+                            anchor.getAttribute("title") ||
+                            ""
+                        ).replace(/\\s+/g, " ").trim();
+                        const title = text || href;
+                        seen.add(href);
+                        rows.push({
+                            url: href,
+                            title: title.slice(0, 180),
+                            text: text.slice(0, 240),
+                        });
+                    }
+                    return rows;
+                }""",
+                {"maxItems": int(limit)},
+            )
+        except Exception:
+            return []
+        if not isinstance(payload, list):
+            return []
+        rows: list[dict[str, str]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            url = str(item.get("url") or "").strip()
+            if not url:
+                continue
+            rows.append(
+                {
+                    "url": url,
+                    "title": str(item.get("title") or url).strip()[:180],
+                    "text": str(item.get("text") or "").strip()[:240],
+                }
+            )
+        return rows
+
     def keyword_regions(self, *, keywords: list[str], limit: int = 8) -> list[dict[str, float | str]]:
         terms = [str(item).strip().lower() for item in keywords if str(item).strip()]
         if not terms:

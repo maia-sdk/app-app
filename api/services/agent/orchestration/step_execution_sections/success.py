@@ -83,12 +83,34 @@ def _branching_mode_from_settings(settings: dict[str, Any]) -> str:
     )
 
 
+def _allowed_tool_ids_from_settings(settings: dict[str, Any]) -> set[str]:
+    raw = settings.get("__allowed_tool_ids")
+    if not isinstance(raw, list):
+        return set()
+    return {str(tool_id).strip() for tool_id in raw if str(tool_id).strip()}
+
+
+def _allows_browser_followup_from_scope(allowed: set[str]) -> bool:
+    if not allowed:
+        return False
+    return bool(
+        allowed.intersection(
+            {
+                "marketing.web_research",
+                "web.extract.structured",
+                "web.dataset.adapter",
+            }
+        )
+    )
+
+
 def _should_insert_live_source_followups(
     *,
     settings: dict[str, Any],
     deep_research_mode: bool,
 ) -> bool:
-    explicit_allowed_scope = bool(_allowed_tool_ids_from_settings(settings))
+    allowed_scope = _allowed_tool_ids_from_settings(settings)
+    explicit_allowed_scope = bool(allowed_scope)
     depth_tier = _depth_tier_from_settings(settings)
     if deep_research_mode or depth_tier in _DEEP_FOLLOWUP_TIERS:
         return True
@@ -104,11 +126,7 @@ def _should_insert_live_source_followups(
         return True
 
     if explicit_allowed_scope:
-        # Explicit workflow step scopes should not silently fan out into
-        # browser-heavy follow-up inspection during standard research runs.
-        # Preserve only the clearly intentional cases above: deep tiers,
-        # file-scoped reviews, and explicit target URLs.
-        return False
+        return _allows_browser_followup_from_scope(allowed_scope)
 
     return False
 
@@ -128,13 +146,6 @@ def _should_retry_research_coverage(
         return True
     target_url = " ".join(str(settings.get("__task_target_url") or "").split()).strip()
     return bool(target_url)
-
-
-def _allowed_tool_ids_from_settings(settings: dict[str, Any]) -> set[str]:
-    raw = settings.get("__allowed_tool_ids")
-    if not isinstance(raw, list):
-        return set()
-    return {str(tool_id).strip() for tool_id in raw if str(tool_id).strip()}
 
 
 def _primary_research_query_from_settings(settings: dict[str, Any], *, fallback: str = "") -> str:
@@ -158,7 +169,15 @@ def _filter_inserted_steps_by_allowlist(
     allowed = _allowed_tool_ids_from_settings(settings)
     if not allowed:
         return list(steps)
-    return [step for step in steps if step.tool_id in allowed]
+    allow_browser_followup = _allows_browser_followup_from_scope(allowed)
+    filtered: list[PlannedStep] = []
+    for step in steps:
+        if step.tool_id in allowed:
+            filtered.append(step)
+            continue
+        if allow_browser_followup and step.tool_id == "browser.playwright.inspect":
+            filtered.append(step)
+    return filtered
 
 
 def handle_step_success(

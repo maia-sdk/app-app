@@ -306,7 +306,7 @@ def run_bing_provider_and_materialize_stage(
         yield trace_events[-1]
 
     if ok:
-        if used_provider == "brave_search":
+        if used_provider in {"brave_search", "computer_use_browser"}:
             rows = payload.get("results") if isinstance(payload, dict) else []
             results = rows if isinstance(rows, list) else []
             max_source_rows = max(8, min(fused_top_k, 600))
@@ -330,7 +330,7 @@ def run_bing_provider_and_materialize_stage(
                         url=url or None,
                         score=max(0.5, min(0.95, 0.68 + (rrf_score * 120))),
                         metadata={
-                            "provider": "brave_search",
+                            "provider": used_provider,
                             "excerpt": excerpt,
                             "extract": excerpt,
                             "rrf_score": rrf_score,
@@ -342,7 +342,7 @@ def run_bing_provider_and_materialize_stage(
                 title="Assess retrieval quality",
                 detail=f"Fused retrieval produced {len(results)} result(s); {len(sources)} source(s) selected",
                 data={
-                    "provider": "brave_search",
+                    "provider": used_provider,
                     "result_count": len(results),
                     "source_count": len(sources),
                     "target_source_count": min_unique_sources,

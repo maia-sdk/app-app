@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import base64
+from urllib.parse import parse_qs, urlparse
 from typing import Any, Callable
 
+from api.services.agent.connectors.computer_use_browser_helpers import write_snapshot
 from api.services.agent.tools.base import ToolExecutionContext, ToolTraceEvent
 from api.services.agent.tools.research_helpers import (
     classify_provider_failure as _classify_provider_failure,
     fuse_search_results as _fuse_search_results,
     safe_snippet as _safe_snippet,
+    score_results_relevance_llm as _score_results_relevance_llm,
 )
 from api.services.agent.tools.research_web_helpers import (
     _apply_domain_scope,
@@ -15,6 +19,201 @@ from api.services.agent.tools.research_web_helpers import (
     _search_results_url,
     _website_scene_payload,
 )
+from api.services.computer_use.session_registry import get_session_registry
+
+
+def _unwrap_search_result_url(url: str, *, provider_host: str) -> str:
+    cleaned = str(url or "").strip()
+    if not cleaned.startswith(("http://", "https://")):
+        return ""
+    host = str(urlparse(cleaned).hostname or "").strip().lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if provider_host == "bing.com" and host == "bing.com":
+        parsed = urlparse(cleaned)
+        encoded = parse_qs(parsed.query or "", keep_blank_values=False).get("u", [""])[0]
+        encoded = str(encoded or "").strip()
+        if encoded.startswith("a1"):
+            payload = encoded[2:]
+            payload += "=" * (-len(payload) % 4)
+            try:
+                decoded = base64.b64decode(payload).decode("utf-8", errors="ignore").strip()
+            except Exception:
+                decoded = ""
+            if decoded.startswith(("http://", "https://")):
+                cleaned = decoded
+    return cleaned
+
+
+def _is_result_like_url(url: str, *, provider_host: str) -> bool:
+    cleaned = _unwrap_search_result_url(url, provider_host=provider_host)
+    if not cleaned.startswith(("http://", "https://")):
+        return False
+    host = str(urlparse(cleaned).hostname or "").strip().lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if not host:
+        return False
+    if provider_host and (host == provider_host or host.endswith(f".{provider_host}")):
+        return False
+    lowered = cleaned.lower()
+    if lowered.startswith(("javascript:", "mailto:", "tel:")):
+        return False
+    return True
+
+
+def _run_computer_use_search_variant(
+    *,
+    context: ToolExecutionContext,
+    query_variant: str,
+    variant_index: int,
+    total_variants: int,
+    result_limit: int,
+    search_url: str,
+    max_live_clicks_per_query: int,
+    trace_events: list[ToolTraceEvent],
+) -> list[dict[str, Any]]:
+    registry = get_session_registry()
+    user_id = str(context.settings.get("__agent_user_id") or context.settings.get("agent.tenant_id") or "default").strip() or "default"
+    session = registry.create(user_id=user_id, start_url=search_url)
+    provider_host = str(urlparse(search_url).hostname or "").strip().lower()
+    if provider_host.startswith("www."):
+        provider_host = provider_host[4:]
+    try:
+        session.navigate(search_url)
+        open_snapshot = write_snapshot(screenshot_b64=session.screenshot_b64(), label=f"search-{variant_index}-open")
+        open_event = ToolTraceEvent(
+            event_type="browser_open",
+            title=f"Open live search results {variant_index}/{total_variants}",
+            detail=_safe_snippet(query_variant, 140),
+            data=_website_scene_payload(
+                lane="search-results-open-live",
+                primary_index=variant_index,
+                payload={
+                    "provider": "computer_use_browser",
+                    "query": query_variant,
+                    "variant_index": variant_index,
+                    "url": search_url,
+                    "source_url": search_url,
+                    "render_quality": "live",
+                    "computer_use_session_id": session.session_id,
+                },
+            ),
+            snapshot_ref=open_snapshot or None,
+        )
+        trace_events.append(open_event)
+        yield open_event
+
+        discovered: list[dict[str, Any]] = []
+        for scroll_step, metrics in enumerate(session.scroll_through_page(max_steps=3), start=1):
+            scroll_snapshot = write_snapshot(
+                screenshot_b64=session.screenshot_b64(),
+                label=f"search-{variant_index}-scroll-{scroll_step}",
+            )
+            scroll_event = ToolTraceEvent(
+                event_type="browser_scroll",
+                title=f"Scroll live search results {scroll_step}",
+                detail=f"Scanning results ({int(round(float(metrics.get('scroll_percent') or 0.0)))}%)",
+                data=_website_scene_payload(
+                    lane="search-results-scroll-live",
+                    primary_index=variant_index,
+                    secondary_index=scroll_step,
+                    payload={
+                        "provider": "computer_use_browser",
+                        "query": query_variant,
+                        "variant_index": variant_index,
+                        "url": search_url,
+                        "source_url": search_url,
+                        "scroll_percent": float(metrics.get("scroll_percent") or 0.0),
+                        "scroll_direction": "down",
+                        "computer_use_session_id": session.session_id,
+                    },
+                ),
+                snapshot_ref=scroll_snapshot or None,
+            )
+            trace_events.append(scroll_event)
+            yield scroll_event
+            for row in session.extract_links(limit=max(12, result_limit * 2)):
+                url = _unwrap_search_result_url(str(row.get("url") or "").strip(), provider_host=provider_host)
+                if not _is_result_like_url(url, provider_host=provider_host):
+                    continue
+                if any(str(existing.get("url") or "") == url for existing in discovered):
+                    continue
+                discovered.append(
+                    {
+                        "url": url,
+                        "title": str(row.get("title") or url).strip(),
+                        "description": str(row.get("text") or "").strip(),
+                        "source": "computer_use_browser",
+                    }
+                )
+                if len(discovered) >= max(12, result_limit * 2):
+                    break
+            if len(discovered) >= max(6, result_limit):
+                break
+
+        ranked = _score_results_relevance_llm(
+            query=query_variant,
+            results=discovered,
+            min_score=0.18,
+            batch_size=12,
+        )[: max(1, result_limit)]
+
+        for rank, row in enumerate(ranked[: max(1, max_live_clicks_per_query)], start=1):
+            clicked_url = str(row.get("url") or "").strip()
+            if not clicked_url:
+                continue
+            host_label = _hostname_label(clicked_url)
+            click_event = ToolTraceEvent(
+                event_type="browser_click",
+                title=f"Select live result {rank}",
+                detail=(f"Open {host_label}" if host_label else f"Open result {rank}"),
+                data=_website_scene_payload(
+                    lane="search-result-click-live",
+                    primary_index=variant_index,
+                    secondary_index=rank,
+                    payload={
+                        "provider": "computer_use_browser",
+                        "query": query_variant,
+                        "variant_index": variant_index,
+                        "result_rank": rank,
+                        "url": search_url,
+                        "source_url": search_url,
+                        "target_url": clicked_url,
+                        "computer_use_session_id": session.session_id,
+                    },
+                ),
+                snapshot_ref=open_snapshot or None,
+            )
+            trace_events.append(click_event)
+            yield click_event
+
+            opened_event = ToolTraceEvent(
+                event_type="web_result_opened",
+                title=f"Open live source {rank}",
+                detail=_safe_snippet(clicked_url, 140),
+                data=_website_scene_payload(
+                    lane="source-opened-live",
+                    primary_index=variant_index,
+                    secondary_index=rank,
+                    payload={
+                        "provider": "computer_use_browser",
+                        "query": query_variant,
+                        "variant_index": variant_index,
+                        "result_rank": rank,
+                        "url": clicked_url,
+                        "source_url": clicked_url,
+                        "computer_use_session_id": session.session_id,
+                    },
+                ),
+                snapshot_ref=open_snapshot or None,
+            )
+            trace_events.append(opened_event)
+            yield opened_event
+
+        return ranked
+    finally:
+        registry.close(session.session_id)
 
 
 def run_brave_provider_stage(
@@ -373,6 +572,99 @@ def run_brave_provider_stage(
             )
             yield trace_events[-1]
             ok = False
+            search_runs = []
+            scheduled_queries = [
+                (idx, query_variant, per_query_limit, _search_results_url("bing_search", query_variant))
+                for idx, (query_variant, per_query_limit) in enumerate(search_plan, start=1)
+            ]
+            try:
+                trace_events.append(
+                    ToolTraceEvent(
+                        event_type="tool_progress",
+                        title="Falling back to Maia computer live search",
+                        detail="Search API unavailable; using Maia computer to search the web live.",
+                        data={
+                            "provider_requested": "brave_search",
+                            "fallback_provider": "computer_use_browser",
+                            "failure_reason": failure.get("reason"),
+                        },
+                    )
+                )
+                yield trace_events[-1]
+                for idx, query_variant, per_query_limit, search_url in scheduled_queries:
+                    if not search_url:
+                        continue
+                    ranked_rows = yield from _run_computer_use_search_variant(
+                        context=context,
+                        query_variant=query_variant,
+                        variant_index=idx,
+                        total_variants=len(query_variants),
+                        result_limit=per_query_limit,
+                        search_url=search_url,
+                        max_live_clicks_per_query=max_live_clicks_per_query,
+                        trace_events=trace_events,
+                    )
+                    scoped_rows, dropped_count = _apply_domain_scope(
+                        rows=[row for row in ranked_rows if isinstance(row, dict)],
+                        domain_scope_hosts=domain_scope_hosts,
+                        domain_scope_mode=domain_scope_mode,
+                    )
+                    domain_scope_filtered_out += int(dropped_count)
+                    search_runs.append(
+                        {
+                            "query_variant": query_variant,
+                            "result_limit": per_query_limit,
+                            "results": scoped_rows,
+                        }
+                    )
+                    trace_events.append(
+                        ToolTraceEvent(
+                            event_type="tool_progress",
+                            title=f"Collected live search results {idx}/{len(query_variants)}",
+                            detail=f"Maia computer captured {len(scoped_rows)} source URL(s)",
+                            data={
+                                "provider": "computer_use_browser",
+                                "query": query_variant,
+                                "variant_index": idx,
+                                "result_count": len(scoped_rows),
+                                "domain_scope_filtered_out": int(dropped_count),
+                            },
+                        )
+                    )
+                    yield trace_events[-1]
+                fused_results = _fuse_search_results(search_runs, top_k=fused_top_k)
+                if fused_results:
+                    payload = {"results": fused_results, "query": query, "provider": "computer_use_browser"}
+                    used_provider = "computer_use_browser"
+                    ok = True
+                    trace_events.append(
+                        ToolTraceEvent(
+                            event_type="retrieval_fused",
+                            title="Fuse live Maia computer search runs",
+                            detail=f"Reduced {sum(len(run.get('results') or []) for run in search_runs)} raw rows to {len(fused_results)} fused results",
+                            data={
+                                "query_variants": query_variants,
+                                "result_count": len(fused_results),
+                                "target_source_count": min_unique_sources,
+                                "fused_top_k": fused_top_k,
+                                "provider": "computer_use_browser",
+                            },
+                        )
+                    )
+                    yield trace_events[-1]
+            except Exception as fallback_exc:
+                fallback_failure = _classify_provider_failure(fallback_exc)
+                fallback_failure["provider"] = "computer_use_browser"
+                provider_failures.append(fallback_failure)
+                trace_events.append(
+                    ToolTraceEvent(
+                        event_type="tool_failed",
+                        title="Maia computer live search failed",
+                        detail=f"{fallback_failure['reason']}: {fallback_failure['message']}",
+                        data=fallback_failure,
+                    )
+                )
+                yield trace_events[-1]
 
     state["payload"] = payload
     state["used_provider"] = used_provider

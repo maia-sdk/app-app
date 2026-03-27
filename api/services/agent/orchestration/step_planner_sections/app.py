@@ -266,6 +266,7 @@ def build_execution_steps(
         steps = build_plan(
             planning_request,
             preferred_tool_ids=set(capability_analysis.preferred_tool_ids),
+            allowed_tool_ids=available_tool_ids,
             web_routing=web_routing,
             deep_research_mode=effective_deep_research_mode,
         )

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseApiSceneState } from "./api_scene_state";
+import { parseApiSceneState } from "@maia/theatre";
 
 describe("parseApiSceneState", () => {
   it("detects API scene events and parses object cards with diffs", () => {

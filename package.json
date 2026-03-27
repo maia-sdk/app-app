@@ -6,7 +6,8 @@
   "scripts": {
     "build:app": "pnpm --dir frontend/user_interface build",
     "dev:app": "pnpm --dir frontend/user_interface dev",
-    "test:app": "pnpm --dir frontend/user_interface test"
+    "test:app": "pnpm --dir frontend/user_interface test",
+    "setup:computer-use": "python scripts/ensure_computer_use_runtime.py --install"
   },
   "pnpm": {
     "overrides": {

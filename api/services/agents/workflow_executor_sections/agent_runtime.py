@@ -208,6 +208,22 @@ def _run_agent_step(
             return False
         return True
 
+    def _should_allow_browser_inspection_support(*, allowed: list[str] | None, explicit_step_scope: bool) -> bool:
+        if not explicit_step_scope or allowed is None:
+            return False
+        allowed_set = {str(tool_id).strip() for tool_id in allowed if str(tool_id).strip()}
+        if "browser.playwright.inspect" in allowed_set:
+            return False
+        return bool(
+            allowed_set.intersection(
+                {
+                    "marketing.web_research",
+                    "web.extract.structured",
+                    "web.dataset.adapter",
+                }
+            )
+        )
+
     schema_tool_ids = [str(tool_id).strip() for tool_id in list(getattr(schema, "tools", []) or []) if str(tool_id).strip()] if getattr(schema, "tools", None) is not None else []
     step_tool_ids: list[str] | None = None
     if step is not None and isinstance(step.step_config, dict) and "tool_ids" in step.step_config:
@@ -225,6 +241,9 @@ def _run_agent_step(
     if _should_allow_report_synthesis(allowed=allowed_tool_ids, explicit_step_scope=step_tool_ids is not None):
         allowed_tool_ids = list(allowed_tool_ids or [])
         allowed_tool_ids.append("report.generate")
+    if _should_allow_browser_inspection_support(allowed=allowed_tool_ids, explicit_step_scope=step_tool_ids is not None):
+        allowed_tool_ids = list(allowed_tool_ids or [])
+        allowed_tool_ids.append("browser.playwright.inspect")
 
     settings_overrides: dict[str, Any] = {}
     if query_hint:

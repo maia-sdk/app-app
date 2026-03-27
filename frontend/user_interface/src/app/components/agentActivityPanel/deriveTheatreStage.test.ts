@@ -128,7 +128,7 @@ describe("desiredPreviewTabForStage", () => {
       fallbackPreviewTab: "browser",
       manualOverride: false,
     });
-    expect(tab).toBe("system");
+    expect(tab).toBe("browser");
   });
 
   it("uses committed tab for execute stage", () => {

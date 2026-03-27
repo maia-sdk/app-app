@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tabForEventType } from "./tabs";
+import { tabForEventType } from "./app";
 
 describe("tabForEventType", () => {
   it("routes approval and handoff lifecycle events to system tab", () => {

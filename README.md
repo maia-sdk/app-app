@@ -155,6 +155,9 @@ documents and developers who want to build their own RAG pipeline.
 
    pip install -e "libs/maia[all]"
    pip install -e "libs/ktem"
+
+   # required for Maia computer live browser runtime
+   python scripts/ensure_computer_use_runtime.py --install
    ```
 
 2. Create a `.env` file in the root of this project. Use `.env.example` as a template

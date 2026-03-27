@@ -127,6 +127,7 @@ def normalize_steps(
     steps: list[PlannedStep],
     *,
     preferred_tool_ids: set[str] | None = None,
+    allowed_tool_ids: set[str] | None = None,
     intent: dict[str, Any] | None = None,
     web_routing: dict[str, Any] | None = None,
     deep_research_mode: bool,
@@ -145,6 +146,22 @@ def normalize_steps(
     routing_mode = str(routing.get("routing_mode") or "").strip().lower()
     scrape_url_requested = routing_mode == "url_scrape"
     online_research_requested = routing_mode == "online_research"
+    allowed = {
+        str(tool_id).strip()
+        for tool_id in (allowed_tool_ids or set())
+        if str(tool_id).strip()
+    }
+    explicit_research_scope = bool(
+        allowed.intersection(
+            {
+                "marketing.web_research",
+                "browser.playwright.inspect",
+                "web.extract.structured",
+                "web.dataset.adapter",
+                "documents.highlight.extract",
+            }
+        )
+    )
     has_highlight_extract = any(step.tool_id == "documents.highlight.extract" for step in steps)
     has_selected_files = request_has_selected_files(request)
 
@@ -311,7 +328,7 @@ def normalize_steps(
                     },
                 ),
             )
-    elif routing_mode == "none" and not url and not deep_research_mode:
+    elif routing_mode == "none" and not url and not deep_research_mode and not explicit_research_scope:
         pruned: list[PlannedStep] = []
         for step in normalized:
             if step.tool_id not in (
@@ -366,12 +383,37 @@ def normalize_steps(
         deduped.append(step)
 
     if not deduped:
-        deduped.append(
-            PlannedStep(
-                tool_id="report.generate",
-                title="Create concise executive output",
-                params={"summary": request.message},
+        if "marketing.web_research" in allowed:
+            deduped.append(
+                PlannedStep(
+                    tool_id="marketing.web_research",
+                    title="Search online sources",
+                    params={
+                        "query": sanitize_search_query(request.message, fallback_url=url),
+                        "provider": DEFAULT_WEB_RESEARCH_PROVIDER,
+                        "allow_provider_fallback": False,
+                    },
+                )
             )
-        )
+        elif "browser.playwright.inspect" in allowed and url:
+            deduped.append(
+                PlannedStep(
+                    tool_id="browser.playwright.inspect",
+                    title="Inspect provided website in live browser",
+                    params={
+                        "url": url,
+                        "web_provider": DEFAULT_WEB_PROVIDER,
+                        "highlight_color": highlight_color,
+                    },
+                )
+            )
+        else:
+            deduped.append(
+                PlannedStep(
+                    tool_id="report.generate",
+                    title="Create concise executive output",
+                    params={"summary": request.message},
+                )
+            )
 
     return sort_steps(deduped, preferred_tool_ids=preferred_tool_ids)
