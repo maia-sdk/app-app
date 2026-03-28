@@ -166,4 +166,36 @@ describe("theatre flow integration", () => {
     });
     expect(tab).toBe("browser");
   });
+
+  it("keeps browser theatre active when a later coordination event uses scene_family api", () => {
+    const events: AgentActivityEvent[] = [
+      makeEvent({
+        eventType: "browser_open",
+        data: {
+          scene_surface: "website",
+          url: "https://www.example.org/research",
+        },
+      }),
+      makeEvent({
+        eventType: "brain_review_started",
+        data: {
+          scene_family: "api",
+          from_agent: "brain",
+          to_agent: "researcher",
+        },
+      }),
+    ];
+
+    const commit = deriveSurfaceCommit(events);
+    expect(commit?.tab).toBe("browser");
+
+    const tab = desiredPreviewTabForStage({
+      stage: "execute",
+      sceneTab: "system",
+      surfaceCommit: commit,
+      fallbackPreviewTab: "system",
+      manualOverride: false,
+    });
+    expect(tab).toBe("browser");
+  });
 });

@@ -16,7 +16,10 @@ function resolveSceneSnapshotUrl(
 ): string {
   const resolveSnapshot = (event: AgentActivityEvent | null): string => {
     if (!event) return "";
-    const raw = readStringField(event.snapshot_ref);
+    const raw =
+      readStringField(event.snapshot_ref) ||
+      readStringField(event.data?.["snapshot_ref"]) ||
+      readStringField(event.metadata?.["snapshot_ref"]);
     if (!raw) return "";
     if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:image/")) {
       return raw;

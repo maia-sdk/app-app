@@ -188,10 +188,37 @@ def _run_computer_use_search_variant(
             trace_events.append(click_event)
             yield click_event
 
+            opened_snapshot = open_snapshot
+            opened_title = ""
+            try:
+                opened_title = session.navigate(clicked_url)
+                opened_snapshot = write_snapshot(
+                    screenshot_b64=session.screenshot_b64(),
+                    label=f"search-{variant_index}-source-{rank}",
+                )
+            except Exception as exc:
+                failure_event = ToolTraceEvent(
+                    event_type="tool_failed",
+                    title=f"Open live source {rank} failed",
+                    detail=_safe_snippet(str(exc) or clicked_url, 160),
+                    data={
+                        "provider": "computer_use_browser",
+                        "query": query_variant,
+                        "variant_index": variant_index,
+                        "result_rank": rank,
+                        "url": clicked_url,
+                        "source_url": clicked_url,
+                        "computer_use_session_id": session.session_id,
+                    },
+                )
+                trace_events.append(failure_event)
+                yield failure_event
+                continue
+
             opened_event = ToolTraceEvent(
                 event_type="web_result_opened",
                 title=f"Open live source {rank}",
-                detail=_safe_snippet(clicked_url, 140),
+                detail=_safe_snippet(opened_title or clicked_url, 140),
                 data=_website_scene_payload(
                     lane="source-opened-live",
                     primary_index=variant_index,
@@ -203,13 +230,70 @@ def _run_computer_use_search_variant(
                         "result_rank": rank,
                         "url": clicked_url,
                         "source_url": clicked_url,
+                        "title": opened_title,
                         "computer_use_session_id": session.session_id,
                     },
                 ),
-                snapshot_ref=open_snapshot or None,
+                snapshot_ref=opened_snapshot or None,
             )
             trace_events.append(opened_event)
             yield opened_event
+
+            source_open_event = ToolTraceEvent(
+                event_type="browser_open",
+                title=f"Load live source {rank}",
+                detail=_safe_snippet(opened_title or clicked_url, 140),
+                data=_website_scene_payload(
+                    lane="source-open-live",
+                    primary_index=variant_index,
+                    secondary_index=rank,
+                    payload={
+                        "provider": "computer_use_browser",
+                        "query": query_variant,
+                        "variant_index": variant_index,
+                        "result_rank": rank,
+                        "url": clicked_url,
+                        "source_url": clicked_url,
+                        "title": opened_title,
+                        "computer_use_session_id": session.session_id,
+                    },
+                ),
+                snapshot_ref=opened_snapshot or None,
+            )
+            trace_events.append(source_open_event)
+            yield source_open_event
+
+            source_scroll_steps = session.scroll_through_page(max_steps=1)
+            for source_scroll_index, metrics in enumerate(source_scroll_steps, start=1):
+                source_scroll_snapshot = write_snapshot(
+                    screenshot_b64=session.screenshot_b64(),
+                    label=f"search-{variant_index}-source-{rank}-scroll-{source_scroll_index}",
+                )
+                source_scroll_event = ToolTraceEvent(
+                    event_type="browser_scroll",
+                    title=f"Scroll live source {rank}",
+                    detail=f"Verifying page ({int(round(float(metrics.get('scroll_percent') or 0.0)))}%)",
+                    data=_website_scene_payload(
+                        lane="source-scroll-live",
+                        primary_index=variant_index,
+                        secondary_index=rank,
+                        payload={
+                            "provider": "computer_use_browser",
+                            "query": query_variant,
+                            "variant_index": variant_index,
+                            "result_rank": rank,
+                            "url": clicked_url,
+                            "source_url": clicked_url,
+                            "title": opened_title,
+                            "scroll_percent": float(metrics.get("scroll_percent") or 0.0),
+                            "scroll_direction": "down",
+                            "computer_use_session_id": session.session_id,
+                        },
+                    ),
+                    snapshot_ref=source_scroll_snapshot or opened_snapshot or None,
+                )
+                trace_events.append(source_scroll_event)
+                yield source_scroll_event
 
         return ranked
     finally:

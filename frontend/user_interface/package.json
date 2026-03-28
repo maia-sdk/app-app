@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@maia/acp": "workspace:*",
+    "@maia/brain": "workspace:*",
     "@maia/computer-use": "workspace:*",
     "@maia/theatre": "workspace:*",
     "@emotion/react": "11.14.0",

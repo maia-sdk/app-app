@@ -38,6 +38,19 @@ describe("deriveSurfaceCommit", () => {
     expect(commit?.sourceUrl).toBe("https://example.org");
   });
 
+  it("does not commit browser from placeholder browser events without renderable evidence", () => {
+    const commit = deriveSurfaceCommit([
+      makeEvent({
+        eventType: "browser_navigate",
+        data: {
+          scene_surface: "website",
+          scene_family: "browser",
+        },
+      }),
+    ]);
+    expect(commit).toBeNull();
+  });
+
   it("commits from ui_commit metadata on mixed legacy streams", () => {
     const commit = deriveSurfaceCommit([
       makeEvent({

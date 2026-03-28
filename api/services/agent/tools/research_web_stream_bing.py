@@ -14,6 +14,8 @@ from api.services.agent.tools.research_web_helpers import (
     _website_scene_payload,
     _search_results_url,
 )
+from api.services.agent.connectors.computer_use_browser_helpers import write_snapshot
+from api.services.computer_use.session_registry import get_session_registry
 
 
 def _bing_fallback_configured(registry: Any, context: ToolExecutionContext) -> bool:
@@ -178,6 +180,14 @@ def run_bing_provider_and_materialize_stage(
                 )
                 trace_events.append(bing_scroll_event)
                 yield bing_scroll_event
+                user_id = (
+                    str(
+                        context.settings.get("__agent_user_id")
+                        or context.settings.get("agent.tenant_id")
+                        or "default"
+                    ).strip()
+                    or "default"
+                )
                 for rank, row in enumerate(rows[:max_live_clicks_per_query], start=1):
                     if not isinstance(row, dict):
                         continue
@@ -207,10 +217,40 @@ def run_bing_provider_and_materialize_stage(
                     )
                     trace_events.append(click_event)
                     yield click_event
+
+                    opened_snapshot = ""
+                    opened_title = ""
+                    opened_session = get_session_registry().create(user_id=user_id, start_url=clicked_url)
+                    try:
+                        opened_title = opened_session.navigate(clicked_url)
+                        opened_snapshot = write_snapshot(
+                            screenshot_b64=opened_session.screenshot_b64(),
+                            label=f"bing-source-{rank}",
+                        )
+                    except Exception as exc:
+                        failure_event = ToolTraceEvent(
+                            event_type="tool_failed",
+                            title=f"Open Bing source {rank} failed",
+                            detail=_safe_snippet(str(exc) or clicked_url, 160),
+                            data={
+                                "provider": "bing_search",
+                                "query": bing_query,
+                                "variant_index": 1,
+                                "result_rank": rank,
+                                "url": clicked_url,
+                                "source_url": clicked_url,
+                                "computer_use_session_id": opened_session.session_id,
+                            },
+                        )
+                        trace_events.append(failure_event)
+                        yield failure_event
+                        get_session_registry().close(opened_session.session_id)
+                        continue
+
                     open_event = ToolTraceEvent(
                         event_type="web_result_opened",
                         title=f"Open Bing source {rank}",
-                        detail=_safe_snippet(clicked_url, 140),
+                        detail=_safe_snippet(opened_title or clicked_url, 140),
                         data=_website_scene_payload(
                             lane="bing-source-opened",
                             primary_index=1,
@@ -222,11 +262,71 @@ def run_bing_provider_and_materialize_stage(
                                 "result_rank": rank,
                                 "url": clicked_url,
                                 "source_url": clicked_url,
+                                "title": opened_title,
+                                "computer_use_session_id": opened_session.session_id,
                             },
                         ),
+                        snapshot_ref=opened_snapshot or None,
                     )
                     trace_events.append(open_event)
                     yield open_event
+
+                    source_open_event = ToolTraceEvent(
+                        event_type="browser_open",
+                        title=f"Load Bing source {rank}",
+                        detail=_safe_snippet(opened_title or clicked_url, 140),
+                        data=_website_scene_payload(
+                            lane="bing-source-open-live",
+                            primary_index=1,
+                            secondary_index=rank,
+                            payload={
+                                "provider": "bing_search",
+                                "query": bing_query,
+                                "variant_index": 1,
+                                "result_rank": rank,
+                                "url": clicked_url,
+                                "source_url": clicked_url,
+                                "title": opened_title,
+                                "computer_use_session_id": opened_session.session_id,
+                            },
+                        ),
+                        snapshot_ref=opened_snapshot or None,
+                    )
+                    trace_events.append(source_open_event)
+                    yield source_open_event
+
+                    source_scroll_steps = opened_session.scroll_through_page(max_steps=1)
+                    for source_scroll_index, metrics in enumerate(source_scroll_steps, start=1):
+                        source_scroll_snapshot = write_snapshot(
+                            screenshot_b64=opened_session.screenshot_b64(),
+                            label=f"bing-source-{rank}-scroll-{source_scroll_index}",
+                        )
+                        source_scroll_event = ToolTraceEvent(
+                            event_type="browser_scroll",
+                            title=f"Scroll Bing source {rank}",
+                            detail=f"Verifying page ({int(round(float(metrics.get('scroll_percent') or 0.0)))}%)",
+                            data=_website_scene_payload(
+                                lane="bing-source-scroll-live",
+                                primary_index=1,
+                                secondary_index=rank,
+                                payload={
+                                    "provider": "bing_search",
+                                    "query": bing_query,
+                                    "variant_index": 1,
+                                    "result_rank": rank,
+                                    "url": clicked_url,
+                                    "source_url": clicked_url,
+                                    "title": opened_title,
+                                    "scroll_percent": float(metrics.get("scroll_percent") or 0.0),
+                                    "scroll_direction": "down",
+                                    "computer_use_session_id": opened_session.session_id,
+                                },
+                            ),
+                            snapshot_ref=source_scroll_snapshot or opened_snapshot or None,
+                        )
+                        trace_events.append(source_scroll_event)
+                        yield source_scroll_event
+                    get_session_registry().close(opened_session.session_id)
             trace_events.append(
                 ToolTraceEvent(
                     event_type="api_call_completed",

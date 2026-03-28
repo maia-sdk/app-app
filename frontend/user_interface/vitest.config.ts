@@ -6,9 +6,12 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@maia/acp": path.resolve(__dirname, "../../vendor/maia-sdk/packages/acp-js/src/index.ts"),
+      "@maia/brain": path.resolve(__dirname, "../../vendor/maia-sdk/packages/brain-runtime/src/index.ts"),
       "@maia/computer-use": path.resolve(__dirname, "../../vendor/maia-sdk/packages/computer-use/src/index.ts"),
       "@maia/teamchat": path.resolve(__dirname, "../../vendor/maia-sdk/packages/teamchat/src/index.ts"),
       "@maia/theatre": path.resolve(__dirname, "../../vendor/maia-sdk/packages/theatre-react/src/index.ts"),
+      "@opentelemetry/api": path.resolve(__dirname, "./src/shims/opentelemetry-api.ts"),
+      dotenv: path.resolve(__dirname, "./src/shims/dotenv.ts"),
     },
   },
   test: {

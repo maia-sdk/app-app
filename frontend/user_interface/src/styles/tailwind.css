@@ -1,4 +1,6 @@
 @import 'tailwindcss' source(none);
 @source '../**/*.{js,ts,jsx,tsx}';
+@source '../../../../vendor/maia-sdk/packages/theatre-react/src/**/*.{js,ts,jsx,tsx}';
+@source '../../../../vendor/maia-sdk/packages/teamchat/src/**/*.{js,ts,jsx,tsx}';
 
 @import 'tw-animate-css';
